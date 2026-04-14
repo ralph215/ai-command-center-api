@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Command Center</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #1a1a1a; padding: 24px; }
+  h1 { font-size: 20px; font-weight: 600; margin-bottom: 20px; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  .stat { background: #fff; border-radius: 10px; padding: 14px 16px; border: 1px solid #e5e5e5; }
+  .stat-label { font-size: 12px; color: #888; margin-bottom: 4px; }
+  .stat-value { font-size: 24px; font-weight: 600; }
+  .controls { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+  .controls input, .controls select { padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; background: #fff; }
+  .controls input { flex: 1; min-width: 200px; }
+  .feed { display: flex; flex-direction: column; gap: 10px; }
+  .card { background: #fff; border-radius: 10px; padding: 16px; border: 1px solid #e5e5e5; }
+  .card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
+  .card-title { font-size: 14px; font-weight: 600; line-height: 1.4; flex: 1; }
+  .badge { font-size: 11px; padding: 3px 9px; border-radius: 999px; white-space: nowrap; flex-shrink: 0; font-weight: 500; }
+  .badge-other { background: #e1f5ee; color: #0f6e56; }
+  .badge-google { background: #e6f1fb; color: #185fa5; }
+  .badge-anthropic { background: #eeedfe; color: #534ab7; }
+  .summary { font-size: 13px; color: #555; line-height: 1.6; }
+  .card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+  .source-tag { font-size: 11px; color: #aaa; }
+  .read-link { font-size: 12px; color: #185fa5; text-decoration: none; }
+  .read-link:hover { text-decoration: underline; }
+  .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  .refresh-btn { font-size: 13px; padding: 7px 16px; border: 1px solid #ddd; border-radius: 8px; background: #fff; cursor: pointer; }
+  .refresh-btn:hover { background: #f5f5f5; }
+  .count { font-size: 13px; color: #888; }
+  .empty { text-align: center; padding: 40px; color: #888; }
+  .error { background: #fff0f0; color: #c0392b; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; font-size: 13px; }
+  @media(max-width: 600px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+</style>
+</head>
+<body>
+
+<div class="header-row">
+  <h1>AI Command Center</h1>
+  <div style="display:flex;gap:12px;align-items:center;">
+    <span class="count" id="count"></span>
+    <button class="refresh-btn" onclick="load()">Refresh</button>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat"><div class="stat-label">Total articles</div><div class="stat-value" id="s-total">—</div></div>
+  <div class="stat"><div class="stat-label">Sources</div><div class="stat-value" id="s-sources">—</div></div>
+  <div class="stat"><div class="stat-label">Summarized</div><div class="stat-value" id="s-summarized">—</div></div>
+  <div class="stat"><div class="stat-label">Today</div><div class="stat-value" id="s-today">—</div></div>
+</div>
+
+<div class="controls">
+  <input type="text" id="search" placeholder="Search articles..." oninput="render()" />
+  <select id="fv" onchange="render()">
+    <option value="">All vendors</option>
+    <option value="other ">Other</option>
+    <option value="google">Google</option>
+    <option value="Anthropic">Anthropic</option>
+  </select>
+  <select id="fs" onchange="render()">
+    <option value="">All sources</option>
+  </select>
+</div>
+
+<div id="error" style="display:none" class="error"></div>
+<div id="feed" class="feed">Loading...</div>
+
+<script>
+let all = [];
+
+async function load() {
+  document.getElementById('feed').innerHTML = 'Loading...';
+  document.getElementById('error').style.display = 'none';
+  try {
+    const res = await fetch('/api/feed');
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+    all = (data.records || []).map(r => ({ id: r.id, ct: r.createdTime, ...r.fields }));
+    buildSourceFilter();
+    updateStats();
+    render();
+  } catch(e) {
+    document.getElementById('error').textContent = 'Error: ' + e.message;
+    document.getElementById('error').style.display = 'block';
+    document.getElementById('feed').innerHTML = '';
+  }
+}
+
+function buildSourceFilter() {
+  const sources = [...new Set(all.map(r => r['source name']).filter(Boolean))].sort();
+  const sel = document.getElementById('fs');
+  sel.innerHTML = '<option value="">All sources</option>';
+  sources.forEach(s => { const o = document.createElement('option'); o.value = s; o.textContent = s; sel.appendChild(o); });
+}
+
+function updateStats() {
+  const today = new Date().toISOString().slice(0, 10);
+  document.getElementById('s-total').textContent = all.length;
+  document.getElementById('s-sources').textContent = new Set(all.map(r => r['source name']).filter(Boolean)).size;
+  document.getElementById('s-summarized').textContent = all.filter(r => r['Short summary'] || r['Short summ']).length;
+  document.getElementById('s-today').textContent = all.filter(r => r.ct && r.ct.startsWith(today)).length;
+}
+
+function render() {
+  const q = document.getElementById('search').value.toLowerCase();
+  const fv = document.getElementById('fv').value;
+  const fs = document.getElementById('fs').value;
+  let recs = all.filter(r => {
+    if (q && !(r.Title||'').toLowerCase().includes(q) && !(r['Short summary']||r['Short summ']||'').toLowerCase().includes(q)) return false;
+    if (fv && r.vendor !== fv) return false;
+    if (fs && r['source name'] !== fs) return false;
+    return true;
+  });
+  document.getElementById('count').textContent = recs.length + ' articles';
+  if (!recs.length) { document.getElementById('feed').innerHTML = '<div class="empty">No results.</div>'; return; }
+  document.getElementById('feed').innerHTML = recs.map(r => {
+    const v = (r.vendor||'').trim().toLowerCase();
+    const bc = v === 'google' ? 'badge-google' : v === 'anthropic' ? 'badge-anthropic' : 'badge-other';
+    const bl = v === 'google' ? 'Google' : v === 'anthropic' ? 'Anthropic' : 'Other';
+    const summary = r['Short summary'] || r['Short summ'] || '';
+    return `<div class="card">
+      <div class="card-top"><div class="card-title">${esc(r.Title||'Untitled')}</div><span class="badge ${bc}">${bl}</span></div>
+      ${summary ? `<div class="summary">${esc(summary)}</div>` : ''}
+      <div class="card-footer"><span class="source-tag">${esc(r['source name']||'')}</span><a class="read-link" href="${esc(r.URL||'#')}" target="_blank">Read article</a></div>
+    </div>`;
+  }).join('');
+}
+
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+load();
+</script>
+</body>
+</html>
