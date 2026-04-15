@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>AI Command Center</title>
 <style>
   :root {
@@ -21,12 +21,13 @@
     --openai: #10b981;
     --other: #7c6af0;
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   body {
     background: var(--bg);
     color: var(--text);
     font-family: 'Courier New', monospace;
     min-height: 100vh;
+    overscroll-behavior: none;
   }
 
   /* HEADER */
@@ -39,15 +40,9 @@
     justify-content: space-between;
     position: sticky;
     top: 0;
-    z-index: 100;
+    z-index: 50;
   }
-  .logo {
-    font-size: 15px;
-    font-weight: bold;
-    color: var(--accent);
-    letter-spacing: 2px;
-    text-transform: uppercase;
-  }
+  .logo { font-size: 15px; font-weight: bold; color: var(--accent); letter-spacing: 2px; text-transform: uppercase; }
   .logo span { color: var(--accent2); }
   .header-right { display: flex; align-items: center; gap: 12px; }
   .live-dot {
@@ -60,29 +55,33 @@
     background: var(--border);
     border: 1px solid var(--accent);
     color: var(--accent);
-    padding: 5px 14px;
+    padding: 6px 14px;
     border-radius: 4px;
     cursor: pointer;
     font-family: inherit;
     font-size: 12px;
     letter-spacing: 1px;
+    touch-action: manipulation;
   }
-  .refresh-btn:hover { background: var(--accent); color: #fff; }
+  .refresh-btn:hover, .refresh-btn:active { background: var(--accent); color: #fff; }
 
   /* NAV TABS */
   nav {
     background: var(--surface);
     border-bottom: 1px solid var(--border);
     display: flex;
-    padding: 0 24px;
+    padding: 0 12px;
     overflow-x: auto;
-    gap: 2px;
+    gap: 0;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
   }
+  nav::-webkit-scrollbar { display: none; }
   nav button {
     background: none;
     border: none;
     color: var(--muted);
-    padding: 12px 18px;
+    padding: 13px 14px;
     cursor: pointer;
     font-family: inherit;
     font-size: 12px;
@@ -90,28 +89,20 @@
     border-bottom: 2px solid transparent;
     white-space: nowrap;
     transition: all 0.15s;
+    touch-action: manipulation;
+    flex-shrink: 0;
   }
-  nav button:hover { color: var(--text); }
+  nav button:hover, nav button:active { color: var(--text); }
   nav button.active { color: var(--accent); border-bottom-color: var(--accent); }
 
   /* STATS BAR */
-  .stats-bar {
-    display: flex;
-    gap: 1px;
-    background: var(--border);
-    border-bottom: 1px solid var(--border);
-  }
-  .stat {
-    flex: 1;
-    background: var(--surface);
-    padding: 14px 20px;
-    min-width: 100px;
-  }
-  .stat-label { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; }
-  .stat-value { font-size: 22px; font-weight: bold; color: var(--accent2); }
+  .stats-bar { display: flex; gap: 1px; background: var(--border); border-bottom: 1px solid var(--border); }
+  .stat { flex: 1; background: var(--surface); padding: 12px 16px; min-width: 80px; }
+  .stat-label { font-size: 9px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 3px; }
+  .stat-value { font-size: 20px; font-weight: bold; color: var(--accent2); }
 
   /* MAIN */
-  main { padding: 20px 24px; max-width: 1200px; }
+  main { padding: 16px; max-width: 1200px; }
 
   /* SECTION */
   .section { display: none; }
@@ -120,8 +111,8 @@
   /* FILTERS */
   .filters {
     display: flex;
-    gap: 8px;
-    margin-bottom: 16px;
+    gap: 6px;
+    margin-bottom: 14px;
     flex-wrap: wrap;
     align-items: center;
   }
@@ -129,32 +120,35 @@
     background: var(--surface);
     border: 1px solid var(--border);
     color: var(--muted);
-    padding: 5px 12px;
+    padding: 6px 12px;
     border-radius: 4px;
     cursor: pointer;
     font-family: inherit;
     font-size: 11px;
     letter-spacing: 1px;
     transition: all 0.15s;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
   }
-  .filter-btn:hover { border-color: var(--accent); color: var(--text); }
+  .filter-btn:hover, .filter-btn:active { border-color: var(--accent); color: var(--text); }
   .filter-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
   .search-input {
     background: var(--surface);
     border: 1px solid var(--border);
     color: var(--text);
-    padding: 5px 12px;
+    padding: 6px 12px;
     border-radius: 4px;
     font-family: inherit;
     font-size: 12px;
-    width: 220px;
+    width: 200px;
+    max-width: 100%;
   }
   .search-input:focus { outline: none; border-color: var(--accent); }
   .source-select {
     background: var(--surface);
     border: 1px solid var(--border);
     color: var(--text);
-    padding: 5px 12px;
+    padding: 6px 12px;
     border-radius: 4px;
     font-family: inherit;
     font-size: 12px;
@@ -172,23 +166,11 @@
   }
   .article-card:hover { border-color: var(--accent); }
   .card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
-  .card-title {
-    font-size: 14px;
-    font-weight: bold;
-    color: var(--text);
-    line-height: 1.4;
-  }
+  .card-title { font-size: 14px; font-weight: bold; color: var(--text); line-height: 1.4; }
   .card-title a { color: inherit; text-decoration: none; }
   .card-title a:hover { color: var(--accent); }
   .card-badges { display: flex; gap: 6px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
-  .badge {
-    padding: 2px 8px;
-    border-radius: 3px;
-    font-size: 10px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    font-weight: bold;
-  }
+  .badge { padding: 2px 8px; border-radius: 3px; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; font-weight: bold; }
   .badge-google { background: rgba(66,133,244,0.15); color: var(--google); border: 1px solid rgba(66,133,244,0.3); }
   .badge-anthropic { background: rgba(217,119,6,0.15); color: var(--anthropic); border: 1px solid rgba(217,119,6,0.3); }
   .badge-openai { background: rgba(16,185,129,0.15); color: var(--openai); border: 1px solid rgba(16,185,129,0.3); }
@@ -199,12 +181,7 @@
   .card-date { font-size: 10px; color: var(--muted); }
 
   /* STATUS STATES */
-  .status-msg {
-    text-align: center;
-    padding: 60px 20px;
-    color: var(--muted);
-    font-size: 13px;
-  }
+  .status-msg { text-align: center; padding: 60px 20px; color: var(--muted); font-size: 13px; }
   .status-msg.error { color: var(--red); }
   .loader {
     display: inline-block;
@@ -219,15 +196,36 @@
   @keyframes spin { to { transform: rotate(360deg); } }
 
   /* SEED SECTIONS */
-  .seed-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+  .seed-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+
+  /* INTERACTIVE SEED CARDS */
   .seed-card {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 6px;
     padding: 16px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+    position: relative;
   }
-  .seed-card h3 { font-size: 13px; font-weight: bold; margin-bottom: 6px; color: var(--text); }
-  .seed-card p { font-size: 12px; color: var(--muted); line-height: 1.5; margin-bottom: 10px; }
+  .seed-card:hover { border-color: var(--accent); }
+  .seed-card:active { background: rgba(124,106,240,0.07); border-color: var(--accent); }
+  .seed-card::after {
+    content: '›';
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+    font-size: 18px;
+    line-height: 1;
+    pointer-events: none;
+  }
+  .seed-card h3 { font-size: 13px; font-weight: bold; margin-bottom: 6px; color: var(--text); padding-right: 16px; }
+  .seed-card p { font-size: 12px; color: var(--muted); line-height: 1.5; margin-bottom: 10px; padding-right: 8px; }
   .seed-card .meta { display: flex; gap: 6px; flex-wrap: wrap; }
   .tag { background: var(--border); color: var(--muted); padding: 2px 8px; border-radius: 3px; font-size: 10px; letter-spacing: 1px; }
   .tag.green { background: rgba(72,187,120,0.15); color: var(--green); }
@@ -247,13 +245,167 @@
     line-height: 1.5;
     white-space: pre-wrap;
     margin: 8px 0;
-    max-height: 120px;
+    max-height: 100px;
     overflow-y: auto;
+    pointer-events: none;
   }
-  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+
+  /* CERTS TABLE */
+  .cert-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 6px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 600px; }
   th { text-align: left; padding: 8px 12px; color: var(--muted); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; border-bottom: 1px solid var(--border); }
-  td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text); }
-  tr:hover td { background: var(--surface); }
+  td { padding: 12px 12px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
+  tr.cert-row { cursor: pointer; transition: background 0.12s; touch-action: manipulation; }
+  tr.cert-row:hover td, tr.cert-row:active td { background: rgba(124,106,240,0.08); }
+  tr.cert-row td:last-child { color: var(--muted); }
+
+  /* ════════════════════════════════════════
+     DRAWER SYSTEM
+  ════════════════════════════════════════ */
+  #drawer-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.65);
+    z-index: 200;
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    touch-action: none;
+  }
+  #drawer-overlay.open { display: block; }
+
+  #drawer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    border-radius: 16px 16px 0 0;
+    z-index: 201;
+    max-height: 85vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    transform: translateY(100%);
+    transition: transform 0.28s cubic-bezier(0.4,0,0.2,1);
+    overscroll-behavior: contain;
+  }
+  #drawer.open { transform: translateY(0); }
+
+  .drawer-handle {
+    width: 36px; height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin: 12px auto 0;
+  }
+  .drawer-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 16px 20px 12px;
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .drawer-title {
+    font-size: 15px;
+    font-weight: bold;
+    color: var(--text);
+    line-height: 1.3;
+    flex: 1;
+  }
+  .drawer-close {
+    background: var(--border);
+    border: none;
+    color: var(--muted);
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-family: inherit;
+    touch-action: manipulation;
+  }
+  .drawer-close:hover, .drawer-close:active { background: var(--accent); color: #fff; }
+  .drawer-body { padding: 16px 20px 32px; }
+  .drawer-section { margin-bottom: 16px; }
+  .drawer-label { font-size: 9px; color: var(--muted); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 6px; }
+  .drawer-text { font-size: 13px; color: var(--text); line-height: 1.6; }
+  .drawer-muted { font-size: 12px; color: var(--muted); line-height: 1.6; }
+  .drawer-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  .drawer-price { font-size: 24px; font-weight: bold; color: var(--accent2); margin: 4px 0; }
+  .drawer-progress-wrap { margin: 8px 0; }
+  .drawer-progress-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+  .drawer-progress-bar { background: var(--border); border-radius: 4px; height: 8px; }
+  .drawer-progress-fill { height: 100%; border-radius: 4px; background: var(--accent); }
+  .drawer-prompt-code {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px;
+    font-size: 12px;
+    color: var(--accent2);
+    line-height: 1.6;
+    white-space: pre-wrap;
+    font-family: 'Courier New', monospace;
+    word-break: break-word;
+  }
+  .drawer-action-btn {
+    display: inline-block;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 20px;
+    font-family: inherit;
+    font-size: 12px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    text-decoration: none;
+    text-align: center;
+    width: 100%;
+    margin-top: 8px;
+    touch-action: manipulation;
+  }
+  .drawer-action-btn:hover, .drawer-action-btn:active { background: #6557d4; }
+  .drawer-copy-btn {
+    background: var(--border);
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-family: inherit;
+    font-size: 11px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    width: 100%;
+    margin-top: 8px;
+    touch-action: manipulation;
+  }
+  .drawer-copy-btn:hover, .drawer-copy-btn:active { border-color: var(--accent2); color: var(--accent2); }
+
+  /* SECTION HEADER ROW */
+  .section-hdr {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Mobile responsive tweaks */
+  @media (max-width: 480px) {
+    main { padding: 12px; }
+    .seed-grid { grid-template-columns: 1fr; }
+    .stat { padding: 10px 12px; }
+    .stat-value { font-size: 18px; }
+    header { padding: 12px 16px; }
+  }
 </style>
 </head>
 <body>
@@ -269,7 +421,7 @@
 <nav>
   <button class="active" onclick="showTab('news',this)">📡 News</button>
   <button onclick="showTab('learning',this)">📚 Learning</button>
-  <button onclick="showTab('certs',this)">🏆 Certificates</button>
+  <button onclick="showTab('certs',this)">🏆 Certs</button>
   <button onclick="showTab('projects',this)">🔧 Projects</button>
   <button onclick="showTab('skills',this)">⚡ Skills</button>
   <button onclick="showTab('prompts',this)">💬 Prompts</button>
@@ -277,7 +429,7 @@
 </nav>
 
 <div class="stats-bar">
-  <div class="stat"><div class="stat-label">Total Articles</div><div class="stat-value" id="stat-total">—</div></div>
+  <div class="stat"><div class="stat-label">Articles</div><div class="stat-value" id="stat-total">—</div></div>
   <div class="stat"><div class="stat-label">Sources</div><div class="stat-value" id="stat-sources">—</div></div>
   <div class="stat"><div class="stat-label">Summarized</div><div class="stat-value" id="stat-summarized">—</div></div>
   <div class="stat"><div class="stat-label">Today</div><div class="stat-value" id="stat-today">—</div></div>
@@ -289,7 +441,7 @@
   <div id="section-news" class="section active">
     <div class="filters">
       <input class="search-input" type="text" id="search" placeholder="Search articles..." oninput="renderArticles()">
-      <button class="filter-btn active" data-vendor="all" onclick="setVendor('all',this)">All Vendors</button>
+      <button class="filter-btn active" data-vendor="all" onclick="setVendor('all',this)">All</button>
       <button class="filter-btn" data-vendor="other" onclick="setVendor('other',this)">Other</button>
       <button class="filter-btn" data-vendor="google" onclick="setVendor('google',this)">Google</button>
       <button class="filter-btn" data-vendor="anthropic" onclick="setVendor('anthropic',this)">Anthropic</button>
@@ -305,257 +457,782 @@
   <!-- LEARNING -->
   <div id="section-learning" class="section">
     <div class="filters">
-      <button class="filter-btn active" onclick="filterSeed('learning-cards','all',this)">All</button>
-      <button class="filter-btn" onclick="filterSeed('learning-cards','in-progress',this)">In Progress</button>
-      <button class="filter-btn" onclick="filterSeed('learning-cards','not-started',this)">Not Started</button>
-      <button class="filter-btn" onclick="filterSeed('learning-cards','free',this)">Free</button>
+      <button class="filter-btn active" onclick="filterCards('learning-cards','all',this)">All</button>
+      <button class="filter-btn" onclick="filterCards('learning-cards','in-progress',this)">In Progress</button>
+      <button class="filter-btn" onclick="filterCards('learning-cards','not-started',this)">Not Started</button>
+      <button class="filter-btn" onclick="filterCards('learning-cards','free',this)">Free</button>
     </div>
-    <div class="seed-grid" id="learning-cards">
-      <div class="seed-card" data-tags="in-progress free">
-        <h3>Google AI Essentials</h3>
-        <p>Foundational AI literacy course covering prompting, tools, and real-world applications. Taught by Google.</p>
-        <div class="progress-bar"><div class="progress-fill" style="width:60%"></div></div>
-        <div class="meta">
-          <span class="tag green">In Progress</span>
-          <span class="tag blue">Free</span>
-          <span class="tag">Next: Module 4 — AI in the Workplace</span>
-        </div>
-      </div>
-      <div class="seed-card" data-tags="not-started free">
-        <h3>Prompt Engineering for Developers</h3>
-        <p>DeepLearning.AI + OpenAI short course. Covers system prompts, chain of thought, and output formatting.</p>
-        <div class="progress-bar"><div class="progress-fill" style="width:0%"></div></div>
-        <div class="meta">
-          <span class="tag yellow">Not Started</span>
-          <span class="tag blue">Free</span>
-          <span class="tag">~1.5 hrs</span>
-        </div>
-      </div>
-      <div class="seed-card" data-tags="not-started paid">
-        <h3>Make Automation Mastery</h3>
-        <p>Build multi-step automations with Make.com. Covers webhooks, data stores, scenario structure, and API calls.</p>
-        <div class="progress-bar"><div class="progress-fill" style="width:0%"></div></div>
-        <div class="meta">
-          <span class="tag yellow">Not Started</span>
-          <span class="tag">Paid — Udemy</span>
-          <span class="tag">~6 hrs</span>
-        </div>
-      </div>
-      <div class="seed-card" data-tags="in-progress free">
-        <h3>Airtable Basics + Automations</h3>
-        <p>Official Airtable learning path. Focus on field types, views, formulas, and API integration.</p>
-        <div class="progress-bar"><div class="progress-fill" style="width:30%"></div></div>
-        <div class="meta">
-          <span class="tag green">In Progress</span>
-          <span class="tag blue">Free</span>
-          <span class="tag">Next: Formulas module</span>
-        </div>
-      </div>
-      <div class="seed-card" data-tags="not-started free">
-        <h3>Vercel + Next.js Fundamentals</h3>
-        <p>Learn serverless deployment, environment variables, and edge functions. Direct complement to this stack.</p>
-        <div class="progress-bar"><div class="progress-fill" style="width:0%"></div></div>
-        <div class="meta">
-          <span class="tag yellow">Not Started</span>
-          <span class="tag blue">Free</span>
-          <span class="tag">~3 hrs</span>
-        </div>
-      </div>
-    </div>
+    <div class="seed-grid" id="learning-cards"></div>
   </div>
 
   <!-- CERTIFICATES -->
   <div id="section-certs" class="section">
-    <table>
-      <thead><tr>
-        <th>Certificate</th><th>Platform</th><th>Status</th><th>Credibility</th><th>Job Value</th><th>Client Value</th>
-      </tr></thead>
-      <tbody>
-        <tr>
-          <td>Google AI Essentials</td><td>Coursera / Google</td>
-          <td><span class="tag yellow">In Progress</span></td>
-          <td>⭐⭐⭐⭐</td><td>High — Resume filler</td><td>Medium</td>
-        </tr>
-        <tr>
-          <td>HubSpot AI for Marketing</td><td>HubSpot Academy</td>
-          <td><span class="tag yellow">Not Started</span></td>
-          <td>⭐⭐⭐</td><td>Medium</td><td>High — SMB clients</td>
-        </tr>
-        <tr>
-          <td>Make.com Certified Expert</td><td>Make Academy</td>
-          <td><span class="tag yellow">Not Started</span></td>
-          <td>⭐⭐⭐⭐</td><td>High — Freelance</td><td>High</td>
-        </tr>
-        <tr>
-          <td>Notion Certified Consultant</td><td>Notion</td>
-          <td><span class="tag yellow">Not Started</span></td>
-          <td>⭐⭐⭐</td><td>Medium</td><td>High — SMB</td>
-        </tr>
-        <tr>
-          <td>Google Analytics 4</td><td>Google Skillshop</td>
-          <td><span class="tag green">Completed</span></td>
-          <td>⭐⭐⭐⭐</td><td>High — Required by many</td><td>High</td>
-        </tr>
-      </tbody>
-    </table>
+    <div class="section-hdr">Tap a row to see details</div>
+    <div class="cert-table-wrap">
+      <table>
+        <thead><tr>
+          <th>Certificate</th><th>Platform</th><th>Status</th><th>Credibility</th><th>Job Value</th>
+        </tr></thead>
+        <tbody id="cert-tbody"></tbody>
+      </table>
+    </div>
   </div>
 
   <!-- PROJECTS -->
   <div id="section-projects" class="section">
-    <div class="seed-grid" id="project-cards">
-      <div class="seed-card">
-        <h3>AI Command Center</h3>
-        <p>Automated AI news aggregation with Gemini summaries, Airtable storage, daily email digest, and live dashboard.</p>
-        <div class="meta">
-          <span class="tag green">Active</span>
-          <span class="tag">Make</span><span class="tag">Airtable</span><span class="tag">Vercel</span><span class="tag">Gemini</span>
-        </div>
-        <p style="margin-top:8px;font-size:11px;color:var(--muted)">Lesson: Always validate RSS URLs before building the scenario chain.</p>
-      </div>
-      <div class="seed-card">
-        <h3>Micro 3PL Prep Business</h3>
-        <p>Garage-based Amazon FBA prep service targeting local sellers. Receiving, labeling, poly-bagging, and shipping.</p>
-        <div class="meta">
-          <span class="tag yellow">Planning</span>
-          <span class="tag">FBA Prep</span><span class="tag">Logistics</span>
-        </div>
-      </div>
-      <div class="seed-card">
-        <h3>AI Workflow Client Service</h3>
-        <p>Offer Make + Airtable automation builds to SMBs. Lead gen, onboarding flows, CRM automations.</p>
-        <div class="meta">
-          <span class="tag yellow">Planning</span>
-          <span class="tag">Freelance</span><span class="tag">Make</span><span class="tag">AI Tools</span>
-        </div>
-      </div>
-      <div class="seed-card">
-        <h3>IBEW Local 98 Path</h3>
-        <p>Electrician apprenticeship research — tracking requirements, application windows, and IEC vs IBEW tradeoffs.</p>
-        <div class="meta">
-          <span class="tag green">Active Research</span>
-          <span class="tag">Philadelphia</span>
-        </div>
-      </div>
-      <div class="seed-card">
-        <h3>Daily Income Tracker</h3>
-        <p>Personal Airtable base for tracking income streams, expenses, credit building progress, and savings targets.</p>
-        <div class="meta">
-          <span class="tag yellow">Not Started</span>
-          <span class="tag">Airtable</span><span class="tag">Personal Finance</span>
-        </div>
-      </div>
-    </div>
+    <div class="seed-grid" id="project-cards"></div>
   </div>
 
   <!-- SKILLS -->
   <div id="section-skills" class="section">
-    <div class="seed-grid" id="skill-cards">
-    </div>
+    <div class="seed-grid" id="skill-cards"></div>
   </div>
 
   <!-- PROMPTS -->
   <div id="section-prompts" class="section">
     <div class="filters">
-      <button class="filter-btn active" onclick="filterSeed('prompt-cards','all',this)">All</button>
-      <button class="filter-btn" onclick="filterSeed('prompt-cards','make',this)">Make</button>
-      <button class="filter-btn" onclick="filterSeed('prompt-cards','gemini',this)">Gemini</button>
-      <button class="filter-btn" onclick="filterSeed('prompt-cards','airtable',this)">Airtable</button>
+      <button class="filter-btn active" onclick="filterCards('prompt-cards','all',this)">All</button>
+      <button class="filter-btn" onclick="filterCards('prompt-cards','make',this)">Make</button>
+      <button class="filter-btn" onclick="filterCards('prompt-cards','gemini',this)">Gemini</button>
+      <button class="filter-btn" onclick="filterCards('prompt-cards','airtable',this)">Airtable</button>
     </div>
-    <div class="seed-grid" id="prompt-cards">
-      <div class="seed-card" data-tags="gemini">
-        <h3>AI News Summarizer</h3>
-        <p>Used in all 7 Make feed scenarios. Returns clean paragraph, no labels.</p>
-        <div class="prompt-code">You are an AI news analyst. Write a plain English summary in 3-4 sentences covering what happened and why it matters. No labels, no formatting, just a clean paragraph.
-Article Title: {{1.title}}
-Article Description: {{1.summary}}</div>
-        <div class="meta"><span class="tag blue">Gemini</span><span class="tag green">Reusable</span></div>
-      </div>
-      <div class="seed-card" data-tags="gemini">
-        <h3>Daily Digest Intro</h3>
-        <p>Generates a 2-3 sentence morning briefing intro. Used in the daily email scenario.</p>
-        <div class="prompt-code">Write a 2-3 sentence upbeat intro for a daily AI news email digest. Today is {{date}}. Mention that the digest includes the latest from top AI sources.</div>
-        <div class="meta"><span class="tag blue">Gemini</span><span class="tag green">Reusable</span></div>
-      </div>
-      <div class="seed-card" data-tags="make">
-        <h3>Make Scenario Debug Prompt</h3>
-        <p>Use when a Make scenario runs but data doesn't land in Airtable.</p>
-        <div class="prompt-code">My Make scenario has 3 modules: RSS → HTTP (Gemini) → Airtable. The scenario runs without errors but the Airtable field [FIELD_NAME] stays empty. The Gemini output path I'm using is {{2.data.candidates[1].content.parts[1].text}}. What should I check?</div>
-        <div class="meta"><span class="tag">Make</span></div>
-      </div>
-      <div class="seed-card" data-tags="airtable">
-        <h3>Airtable Schema Inspector</h3>
-        <p>Use with Make RPC to get exact field IDs and option values including trailing spaces.</p>
-        <div class="prompt-code">Use Make RPC to read the Airtable schema for base [BASE_ID] table [TABLE_ID]. Return all field names, field IDs, and any single-select option values exactly as stored.</div>
-        <div class="meta"><span class="tag">Airtable</span><span class="tag">Make</span></div>
-      </div>
-      <div class="seed-card" data-tags="gemini">
-        <h3>Article Scoring JSON Prompt</h3>
-        <p>Next upgrade — get Gemini to return structured JSON with trust/relevance/action/hype scores.</p>
-        <div class="prompt-code">You are an AI news analyst. Analyze this article and return ONLY valid JSON with these fields: {"summary": "3-4 sentence plain English summary", "trust_score": 1-10, "relevance_score": 1-10, "action_score": 1-10, "hype_score": 1-10}. No other text.
-Article: {{1.title}} — {{1.summary}}</div>
-        <div class="meta"><span class="tag blue">Gemini</span><span class="tag yellow">Pending</span></div>
-      </div>
-    </div>
+    <div class="seed-grid" id="prompt-cards"></div>
   </div>
 
   <!-- MONEY -->
   <div id="section-money" class="section">
-    <div class="seed-grid">
-      <div class="seed-card">
-        <h3>AI Workflow Automation</h3>
-        <p>Build Make + Airtable systems for SMBs. Lead gen, CRM, onboarding flows.</p>
-        <div class="money-price">$500 – $2,000</div>
-        <div class="meta"><span class="tag green">Ready</span><span class="tag">SMB Owners</span><span class="tag">Freelance</span></div>
-      </div>
-      <div class="seed-card">
-        <h3>AI News Dashboard (Resell)</h3>
-        <p>Custom version of this Command Center sold to agencies, creators, or operators.</p>
-        <div class="money-price">$300 – $800</div>
-        <div class="meta"><span class="tag yellow">Near Ready</span><span class="tag">Agencies</span></div>
-      </div>
-      <div class="seed-card">
-        <h3>FBA Prep Service</h3>
-        <p>Receive, inspect, label, poly-bag, and ship Amazon FBA inventory. Garage-based operation.</p>
-        <div class="money-price">$0.50 – $1.50/unit</div>
-        <div class="meta"><span class="tag yellow">Planning</span><span class="tag">Amazon Sellers</span></div>
-      </div>
-      <div class="seed-card">
-        <h3>Prompt Engineering Consulting</h3>
-        <p>Help businesses get better outputs from ChatGPT, Claude, and Gemini for their use cases.</p>
-        <div class="money-price">$75 – $150/hr</div>
-        <div class="meta"><span class="tag yellow">Near Ready</span><span class="tag">SMBs</span></div>
-      </div>
-      <div class="seed-card">
-        <h3>Electrician Apprentice (IBEW)</h3>
-        <p>Long-term play. IBEW Local 98 journey wage starts ~$22/hr rising to $55+/hr journeyman.</p>
-        <div class="money-price">$22 → $55+/hr</div>
-        <div class="meta"><span class="tag blue">Long-Term</span><span class="tag">Philadelphia</span></div>
-      </div>
-      <div class="seed-card">
-        <h3>Notary Business</h3>
-        <p>Mobile notary and loan signing agent. Low overhead, flexible schedule, recurring income.</p>
-        <div class="money-price">$75 – $200/signing</div>
-        <div class="meta"><span class="tag green">Active</span><span class="tag">Philadelphia Area</span></div>
-      </div>
-    </div>
+    <div class="seed-grid" id="money-cards"></div>
   </div>
 
 </main>
 
+<!-- DRAWER OVERLAY -->
+<div id="drawer-overlay" onclick="closeDrawer()"></div>
+
+<!-- DETAIL DRAWER -->
+<div id="drawer">
+  <div class="drawer-handle"></div>
+  <div class="drawer-header">
+    <div class="drawer-title" id="drawer-title">Detail</div>
+    <button class="drawer-close" onclick="closeDrawer()">✕</button>
+  </div>
+  <div class="drawer-body" id="drawer-body"></div>
+</div>
+
 <script>
-// ── State ──────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════
+//  SEED DATA
+// ══════════════════════════════════════════════════════
+
+const learningData = [
+  {
+    id: 'google-ai-essentials',
+    tags: 'in-progress free',
+    name: 'Google AI Essentials',
+    desc: 'Foundational AI literacy course covering prompting, tools, and real-world applications. Taught by Google.',
+    progress: 60,
+    status: 'in-progress',
+    cost: 'Free',
+    next: 'Module 4 — AI in the Workplace',
+    platform: 'Coursera / Google',
+    duration: '~4 hrs total',
+    why: 'Builds vocabulary and credibility for AI conversations with clients and employers. Goes on resume.',
+    url: 'https://grow.google/certificates/ai-essentials/'
+  },
+  {
+    id: 'prompt-engineering',
+    tags: 'not-started free',
+    name: 'Prompt Engineering for Developers',
+    desc: 'DeepLearning.AI + OpenAI short course. Covers system prompts, chain of thought, and output formatting.',
+    progress: 0,
+    status: 'not-started',
+    cost: 'Free',
+    next: 'Module 1 — Guidelines',
+    platform: 'DeepLearning.AI',
+    duration: '~1.5 hrs',
+    why: 'Directly applicable to every AI workflow you build. Covers how to get structured, reliable outputs.',
+    url: 'https://www.deeplearning.ai/short-courses/chatgpt-prompt-engineering-for-developers/'
+  },
+  {
+    id: 'make-mastery',
+    tags: 'not-started paid',
+    name: 'Make Automation Mastery',
+    desc: 'Build multi-step automations with Make.com. Covers webhooks, data stores, scenario structure, and API calls.',
+    progress: 0,
+    status: 'not-started',
+    cost: 'Paid — Udemy',
+    next: 'Start course',
+    platform: 'Udemy',
+    duration: '~6 hrs',
+    why: 'You\'re already building at this level via trial and error. Filling gaps here unlocks faster builds and fewer bugs.',
+    url: 'https://www.udemy.com/topic/make-integromat/'
+  },
+  {
+    id: 'airtable-basics',
+    tags: 'in-progress free',
+    name: 'Airtable Basics + Automations',
+    desc: 'Official Airtable learning path. Focus on field types, views, formulas, and API integration.',
+    progress: 30,
+    status: 'in-progress',
+    cost: 'Free',
+    next: 'Formulas module',
+    platform: 'Airtable',
+    duration: '~3 hrs',
+    why: 'Unlocks the scoring system and filtered views you still need to build in the Command Center.',
+    url: 'https://airtable.com/learn'
+  },
+  {
+    id: 'vercel-nextjs',
+    tags: 'not-started free',
+    name: 'Vercel + Next.js Fundamentals',
+    desc: 'Learn serverless deployment, environment variables, and edge functions. Direct complement to this stack.',
+    progress: 0,
+    status: 'not-started',
+    cost: 'Free',
+    next: 'Start course',
+    platform: 'Vercel / Next.js',
+    duration: '~3 hrs',
+    why: 'You deployed a Vercel backend already. This gives you the vocabulary to debug it yourself next time.',
+    url: 'https://nextjs.org/learn'
+  }
+];
+
+const certData = [
+  {
+    name: 'Google AI Essentials',
+    platform: 'Coursera / Google',
+    status: 'in-progress',
+    credibility: 4,
+    jobValue: 'High — Resume filler',
+    clientValue: 'Medium — Shows AI literacy',
+    cost: 'Free',
+    timeline: '~2 weeks at current pace',
+    notes: 'Stackable with Google Analytics 4 cert for a strong AI + data story on your resume.'
+  },
+  {
+    name: 'HubSpot AI for Marketing',
+    platform: 'HubSpot Academy',
+    status: 'not-started',
+    credibility: 3,
+    jobValue: 'Medium',
+    clientValue: 'High — SMB clients recognize HubSpot',
+    cost: 'Free',
+    timeline: '~2 hrs',
+    notes: 'Good add-on if targeting small businesses with marketing needs. HubSpot brand is trusted by SMBs.'
+  },
+  {
+    name: 'Make.com Certified Expert',
+    platform: 'Make Academy',
+    status: 'not-started',
+    credibility: 4,
+    jobValue: 'High — Freelance automation work',
+    clientValue: 'High — Proves you can build',
+    cost: 'Free',
+    timeline: 'Several modules — ~8 hrs',
+    notes: 'This is the most directly monetizable cert you can get right now given what you\'re already building.'
+  },
+  {
+    name: 'Notion Certified Consultant',
+    platform: 'Notion',
+    status: 'not-started',
+    credibility: 3,
+    jobValue: 'Medium',
+    clientValue: 'High — SMB workspace builds',
+    cost: 'Free',
+    timeline: '~3 hrs',
+    notes: 'Pairs well with AI automation services. Many SMBs already use Notion and want it integrated with AI.'
+  },
+  {
+    name: 'Google Analytics 4',
+    platform: 'Google Skillshop',
+    status: 'completed',
+    credibility: 4,
+    jobValue: 'High — Required by many employers',
+    clientValue: 'High — Measurable ROI reporting',
+    cost: 'Free',
+    timeline: 'Completed ✓',
+    notes: 'Already done. Renews annually. Good to pair with AI tools pitch — show clients their data AND automate it.'
+  }
+];
+
+const projectData = [
+  {
+    name: 'AI Command Center',
+    desc: 'Automated AI news aggregation with Gemini summaries, Airtable storage, daily email digest, and live dashboard.',
+    status: 'active',
+    stack: ['Make','Airtable','Vercel','Gemini'],
+    lesson: 'Always validate RSS URLs before building the scenario chain.',
+    url: 'https://ai-command-center-api.vercel.app',
+    nextStep: 'Wire duplicate URL detection. Fix Anthropic scenario. Add scoring fields.'
+  },
+  {
+    name: 'Micro 3PL Prep Business',
+    desc: 'Garage-based Amazon FBA prep service targeting local sellers. Receiving, labeling, poly-bagging, and shipping.',
+    status: 'planning',
+    stack: ['FBA Prep','Logistics','Amazon'],
+    lesson: 'Validate demand before buying equipment. Start with one seller at a discounted rate.',
+    url: null,
+    nextStep: 'Find 2 test clients. Define pricing per unit. Check local zoning for home-based logistics.'
+  },
+  {
+    name: 'AI Workflow Client Service',
+    desc: 'Offer Make + Airtable automation builds to SMBs. Lead gen, onboarding flows, CRM automations.',
+    status: 'planning',
+    stack: ['Make','Airtable','Freelance','AI Tools'],
+    lesson: 'Specialize in one use case first — lead gen automation or CRM — before going broad.',
+    url: null,
+    nextStep: 'Pick one niche. Build one demo workflow. Post 2 case study posts to LinkedIn.'
+  },
+  {
+    name: 'IBEW Local 98 Path',
+    desc: 'Electrician apprenticeship research — tracking requirements, application windows, and IEC vs IBEW tradeoffs.',
+    status: 'research',
+    stack: ['Philadelphia','Electrical','IBEW 98'],
+    lesson: 'Application windows are narrow and competitive. Prep needs to start 3-6 months early.',
+    url: 'https://ibew98.org',
+    nextStep: 'Confirm next application window. Get OSHA 10 card. Register with PA CareerLink.'
+  },
+  {
+    name: 'Daily Income Tracker',
+    desc: 'Personal Airtable base for tracking income streams, expenses, credit building progress, and savings targets.',
+    status: 'not-started',
+    stack: ['Airtable','Personal Finance'],
+    lesson: 'What gets measured gets managed.',
+    url: null,
+    nextStep: 'Create base in Airtable. Add Income, Expenses, and Goals tables. Set weekly review habit.'
+  }
+];
+
+const skillData = [
+  { name:'Prompt Engineering', cur:3, max:5, active:true, note:'Core skill. Already billing-level on news summaries and debug prompts.' },
+  { name:'Make Automations', cur:3, max:5, active:true, note:'Built 8 live scenarios. Gaps: dedup routing, JSON parsing, error handling.' },
+  { name:'Airtable', cur:2, max:5, active:true, note:'Know the basics. Need: formulas, automations, filtered views, formula scoring.' },
+  { name:'Vercel / Serverless', cur:2, max:5, active:true, note:'Deployed a live API backend. Need: routing, env vars management, logs.' },
+  { name:'HTML + CSS + JS', cur:2, max:5, active:false, note:'Can read and edit. Not writing from scratch yet. Gap: event handling, fetch.' },
+  { name:'Gemini API', cur:2, max:5, active:true, note:'Working API integration. Need: JSON output mode, structured prompts, rate handling.' },
+  { name:'Airtable Formulas', cur:1, max:5, active:false, note:'Know Final Score formula exists. Need: IF logic, FIND, date formulas.' },
+  { name:'Google Analytics', cur:3, max:5, active:false, note:'Certified GA4. Not actively using it right now.' },
+  { name:'Business Systems Design', cur:3, max:5, active:true, note:'Strong instinct for process and workflow. Gap: documenting for others.' },
+  { name:'Electrical Trade Knowledge', cur:2, max:5, active:false, note:'General knowledge. Need: NEC code basics, blueprint reading, OSHA 10.' },
+  { name:'Sales + Outreach', cur:2, max:5, active:false, note:'Can close in person. Gap: cold outreach, positioning, written proposals.' },
+  { name:'Financial Literacy', cur:2, max:5, active:false, note:'Improving. Tracking budget, credit building. Gap: tax basics, business accounts.' },
+];
+
+const promptData = [
+  {
+    id: 'news-summarizer',
+    tags: 'gemini',
+    name: 'AI News Summarizer',
+    desc: 'Used in all 7 Make feed scenarios. Returns clean paragraph, no labels.',
+    status: 'Reusable',
+    tool: 'Gemini',
+    prompt: `You are an AI news analyst. Write a plain English summary in 3-4 sentences covering what happened and why it matters. No labels, no formatting, just a clean paragraph.
+Article Title: {{1.title}}
+Article Description: {{1.summary}}`,
+    where: 'All 7 Make RSS feed scenarios — Module 2 HTTP body'
+  },
+  {
+    id: 'daily-digest-intro',
+    tags: 'gemini',
+    name: 'Daily Digest Intro',
+    desc: 'Generates a 2-3 sentence morning briefing intro. Used in the daily email scenario.',
+    status: 'Reusable',
+    tool: 'Gemini',
+    prompt: `Write a 2-3 sentence upbeat intro for a daily AI news email digest. Today is {{date}}. Mention that the digest includes the latest from top AI sources.`,
+    where: 'Daily AI Digest Email scenario — Module 1'
+  },
+  {
+    id: 'make-debug',
+    tags: 'make',
+    name: 'Make Scenario Debug Prompt',
+    desc: 'Use when a Make scenario runs but data doesn\'t land in Airtable.',
+    status: 'Utility',
+    tool: 'Make / Claude',
+    prompt: `My Make scenario has 3 modules: RSS → HTTP (Gemini) → Airtable. The scenario runs without errors but the Airtable field [FIELD_NAME] stays empty. The Gemini output path I'm using is {{2.data.candidates[1].content.parts[1].text}}. What should I check?`,
+    where: 'Use in Claude when debugging Make scenarios'
+  },
+  {
+    id: 'schema-inspector',
+    tags: 'airtable',
+    name: 'Airtable Schema Inspector',
+    desc: 'Use with Make RPC to get exact field IDs and option values including trailing spaces.',
+    status: 'Utility',
+    tool: 'Airtable / Make',
+    prompt: `Use Make RPC to read the Airtable schema for base [BASE_ID] table [TABLE_ID]. Return all field names, field IDs, and any single-select option values exactly as stored.`,
+    where: 'Use in Claude to run Make RPC calls when hitting 422 errors'
+  },
+  {
+    id: 'article-scoring',
+    tags: 'gemini',
+    name: 'Article Scoring JSON Prompt',
+    desc: 'Next upgrade — get Gemini to return structured JSON with trust/relevance/action/hype scores.',
+    status: 'Pending',
+    tool: 'Gemini',
+    prompt: `You are an AI news analyst. Analyze this article and return ONLY valid JSON with these fields: {"summary": "3-4 sentence plain English summary", "trust_score": 1-10, "relevance_score": 1-10, "action_score": 1-10, "hype_score": 1-10}. No other text.
+Article: {{1.title}} — {{1.summary}}`,
+    where: 'Future upgrade — replaces current summarizer when JSON parsing is wired'
+  }
+];
+
+const moneyData = [
+  {
+    name: 'AI Workflow Automation',
+    desc: 'Build Make + Airtable systems for SMBs. Lead gen, CRM, onboarding flows.',
+    price: '$500 – $2,000',
+    status: 'ready',
+    target: 'SMB Owners',
+    type: 'Freelance / Project',
+    effort: 'Medium — 4-10 hrs per build',
+    notes: 'You can build this right now. Need: one solid demo project and a simple 1-page offer. Use the Command Center as proof of concept.',
+    nextStep: 'Write a one-sentence offer. DM 5 small business owners this week.'
+  },
+  {
+    name: 'AI News Dashboard (Resell)',
+    desc: 'Custom version of this Command Center sold to agencies, creators, or operators.',
+    price: '$300 – $800',
+    status: 'near-ready',
+    target: 'Agencies / Creators',
+    type: 'Productized Service',
+    effort: 'Low — reuse existing stack',
+    notes: 'Dashboard is live and working. Would need: custom Airtable base setup per client, new Vercel deploy, basic onboarding doc.',
+    nextStep: 'Price it. Write a 3-bullet offer. Post once to LinkedIn or Twitter to test demand.'
+  },
+  {
+    name: 'FBA Prep Service',
+    desc: 'Receive, inspect, label, poly-bag, and ship Amazon FBA inventory. Garage-based operation.',
+    price: '$0.50 – $1.50/unit',
+    status: 'planning',
+    target: 'Amazon Sellers',
+    type: 'Local Service / B2B',
+    effort: 'Physical — setup costs ~$300-500',
+    notes: 'Low startup cost. Good recurring revenue potential. Need to validate demand before investing in equipment.',
+    nextStep: 'Post in r/FBAPrep or FBA Facebook groups. Offer first client 50% discount for a test shipment.'
+  },
+  {
+    name: 'Prompt Engineering Consulting',
+    desc: 'Help businesses get better outputs from ChatGPT, Claude, and Gemini for their use cases.',
+    price: '$75 – $150/hr',
+    status: 'near-ready',
+    target: 'SMBs / Agencies',
+    type: 'Consulting / Hourly',
+    effort: 'Low — knowledge-based',
+    notes: 'You\'re already operating at this level. Just needs packaging and a way for people to book you.',
+    nextStep: 'Create a Calendly link. Write 3 example use cases. Post on LinkedIn once.'
+  },
+  {
+    name: 'Electrician Apprentice (IBEW)',
+    desc: 'Long-term play. IBEW Local 98 journey wage starts ~$22/hr rising to $55+/hr journeyman.',
+    price: '$22 → $55+/hr',
+    status: 'long-term',
+    target: 'Career Track',
+    type: 'Apprenticeship — 5 years',
+    effort: 'High — full commitment',
+    notes: 'Best long-term income play if you can get in. Union benefits, pension, job security. Application window is competitive and narrow.',
+    nextStep: 'Get OSHA 10. Register with PA CareerLink. Watch ibew98.org for next application window.'
+  },
+  {
+    name: 'Notary / Loan Signing Agent',
+    desc: 'Mobile notary and loan signing agent. Low overhead, flexible schedule, recurring income.',
+    price: '$75 – $200/signing',
+    status: 'active',
+    target: 'Philadelphia Area',
+    type: 'Mobile Service',
+    effort: 'Low overhead — needs NNA cert',
+    notes: 'Already active. Can stack with other income streams. Loan signings pay the most. Good on weekends.',
+    nextStep: 'Get on more signing platforms. Raise rates for loan signings if not already at $125+.'
+  }
+];
+
+// ══════════════════════════════════════════════════════
+//  RENDER FUNCTIONS
+// ══════════════════════════════════════════════════════
+
+function renderLearning() {
+  const grid = document.getElementById('learning-cards');
+  grid.innerHTML = learningData.map(item => {
+    const pct = item.progress;
+    const statusTag = item.status === 'in-progress'
+      ? '<span class="tag green">In Progress</span>'
+      : '<span class="tag yellow">Not Started</span>';
+    const costTag = item.cost === 'Free'
+      ? '<span class="tag blue">Free</span>'
+      : `<span class="tag">${item.cost}</span>`;
+    return `<div class="seed-card" data-tags="${item.tags}" onclick="openLearningDrawer('${item.id}')">
+      <h3>${escHtml(item.name)}</h3>
+      <p>${escHtml(item.desc)}</p>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+      <div class="meta">
+        ${statusTag}
+        ${costTag}
+        <span class="tag">Next: ${escHtml(item.next)}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openLearningDrawer(id) {
+  const item = learningData.find(x => x.id === id);
+  if (!item) return;
+  const pct = item.progress;
+  const statusColor = item.status === 'in-progress' ? 'green' : 'yellow';
+  const statusLabel = item.status === 'in-progress' ? 'In Progress' : 'Not Started';
+
+  const body = `
+    <div class="drawer-section">
+      <div class="drawer-label">Platform</div>
+      <div class="drawer-text">${escHtml(item.platform)} · ${escHtml(item.duration)}</div>
+    </div>
+    <div class="drawer-section">
+      <div class="drawer-label">Description</div>
+      <div class="drawer-muted">${escHtml(item.desc)}</div>
+    </div>
+    <div class="drawer-section">
+      <div class="drawer-label">Why It Matters</div>
+      <div class="drawer-muted">${escHtml(item.why)}</div>
+    </div>
+    <div class="drawer-section">
+      <div class="drawer-label">Progress — ${pct}%</div>
+      <div class="drawer-progress-wrap">
+        <div class="drawer-progress-bar"><div class="drawer-progress-fill" style="width:${pct}%"></div></div>
+      </div>
+      <div class="drawer-tags">
+        <span class="tag ${statusColor}">${statusLabel}</span>
+        <span class="tag ${item.cost === 'Free' ? 'blue' : ''}">${escHtml(item.cost)}</span>
+        <span class="tag">Next: ${escHtml(item.next)}</span>
+      </div>
+    </div>
+    ${item.url ? `<a class="drawer-action-btn" href="${item.url}" target="_blank" rel="noopener">Open Course →</a>` : ''}
+  `;
+  openDrawer(item.name, body);
+}
+
+function renderCerts() {
+  const tbody = document.getElementById('cert-tbody');
+  tbody.innerHTML = certData.map((c, i) => {
+    const stars = '⭐'.repeat(c.credibility);
+    const statusTag = c.status === 'completed'
+      ? '<span class="tag green">Done</span>'
+      : '<span class="tag yellow">Pending</span>';
+    return `<tr class="cert-row" onclick="openCertDrawer(${i})">
+      <td><strong>${escHtml(c.name)}</strong></td>
+      <td style="color:var(--muted)">${escHtml(c.platform)}</td>
+      <td>${statusTag}</td>
+      <td>${stars}</td>
+      <td style="color:var(--muted)">${escHtml(c.jobValue)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function openCertDrawer(i) {
+  const c = certData[i];
+  const body = `
+    <div class="drawer-section">
+      <div class="drawer-label">Platform</div>
+      <div class="drawer-text">${escHtml(c.platform)}</div>
+    </div>
+    <div class="drawer-section">
+      <div class="drawer-label">Status & Cost</div>
+      <div class="drawer-tags">
+        <span class="tag ${c.status === 'completed' ? 'green' : 'yellow'}">${c.status === 'completed' ? 'Completed ✓' : 'Not Started'}</span>
+        <span class="tag blue">${escHtml(c.cost)}</span>
+        <span class="tag">${escHtml(c.timeline)}</span>
+      </div>
+    </div>
+    <div class="drawer-section">
+      <div class="drawer-label">Credibility</div>
+      <div class="drawer-text">${'⭐'.repeat(c.credibility)} (${c.credibility}/5)</div>
+    </div>
+    <div class="drawer-section">
+      <div class="drawer-label">Job Value</div>
+      <div class="drawer-muted">${escHtml(c.jobValue)}</div>
+    </div>
+    <div class="drawer-section">
+      <div class="drawer-label">Client Value</div>
+      <div class="drawer-muted">${escHtml(c.clientValue)}</div>
+    </div>
+    <div class="drawer-section">
+      <div class="drawer-label">Notes</div>
+      <div class="drawer-muted">${escHtml(c.notes)}</div>
+    </div>
+  `;
+  openDrawer(c.name, body);
+}
+
+function renderProjects() {
+  const grid = document.getElementById('project-cards');
+  grid.innerHTML = projectData.map((p, i) => {
+    const statusColor = { active:'green', planning:'yellow', research:'blue', 'not-started':'' }[p.status] || '';
+    const statusLabel = p.status.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase());
+    const stackTags = p.stack.map(s => `<span class="tag">${escHtml(s)}</span>`).join('');
+    return `<div class="seed-card" onclick="openProjectDrawer(${i})">
+      <h3>${escHtml(p.name)}</h3>
+      <p>${escHtml(p.desc)}</p>
+      <div class="meta">
+        <span class="tag ${statusColor}">${statusLabel}</span>
+        ${stackTags}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openProjectDrawer(i) {
+  const p = projectData[i];
+  const statusColor = { active:'green', planning:'yellow', research:'blue', 'not-started':'' }[p.status] || '';
+  const statusLabel = p.status.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase());
+  const stackTags = p.stack.map(s => `<span class="tag">${escHtml(s)}</span>`).join('');
+  const body = `
+    <div class="drawer-section">
+      <div class="drawer-label">Status</div>
+      <div class="drawer-tags">
+        <span class="tag ${statusColor}">${statusLabel}</span>
+        ${stackTags}
+      </div>
+    </div>
+    <div class="drawer-section">
+      <div class="drawer-label">Description</div>
+      <div class="drawer-muted">${escHtml(p.desc)}</div>
+    </div>
+    <div class="drawer-section">
+      <div class="drawer-label">Lesson Learned</div>
+      <div class="drawer-muted">${escHtml(p.lesson)}</div>
+    </div>
+    <div class="drawer-section">
+      <div class="drawer-label">Next Step</div>
+      <div class="drawer-text">${escHtml(p.nextStep)}</div>
+    </div>
+    ${p.url ? `<a class="drawer-action-btn" href="${p.url}" target="_blank" rel="noopener">Open Project →</a>` : ''}
+  `;
+  openDrawer(p.name, body);
+}
+
+function renderSkills() {
+  const grid = document.getElementById('skill-cards');
+  grid.innerHTML = skillData.map((s, i) => {
+    const pct = Math.round((s.cur / s.max) * 100);
+    return `<div class="seed-card" onclick="openSkillDrawer(${i})">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding-right:20px">
+        <h3 style="padding-right:0">${escHtml(s.name)}</h3>
+        ${s.active ? '<span class="tag green">Active</span>' : ''}
+      </div>
+      <div class="progress-bar" style="margin:10px 0 4px">
+        <div class="progress-fill" style="width:${pct}%"></div>
+      </div>
+      <div style="font-size:10px;color:var(--muted)">${s.cur}/5 — Target: ${s.max}/5</div>
+    </div>`;
+  }).join('');
+}
+
+function openSkillDrawer(i) {
+  const s = skillData[i];
+  const pct = Math.round((s.cur / s.max) * 100);
+  const body = `
+    <div class="drawer-section">
+      <div class="drawer-label">Current Level</div>
+      <div class="drawer-progress-wrap">
+        <div class="drawer-progress-label">
+          <span>${s.cur}/5</span><span>Target: ${s.max}/5 (${pct}%)</span>
+        </div>
+        <div class="drawer-progress-bar"><div class="drawer-progress-fill" style="width:${pct}%"></div></div>
+      </div>
+      <div class="drawer-tags">
+        ${s.active ? '<span class="tag green">Actively Building</span>' : '<span class="tag">On Deck</span>'}
+      </div>
+    </div>
+    <div class="drawer-section">
+      <div class="drawer-label">Notes</div>
+      <div class="drawer-muted">${escHtml(s.note)}</div>
+    </div>
+  `;
+  openDrawer(s.name, body);
+}
+
+function renderPrompts() {
+  const grid = document.getElementById('prompt-cards');
+  grid.innerHTML = promptData.map(item => {
+    const statusColor = item.status === 'Reusable' ? 'green' : item.status === 'Pending' ? 'yellow' : '';
+    const truncated = item.prompt.length > 120 ? item.prompt.slice(0, 120) + '...' : item.prompt;
+    return `<div class="seed-card" data-tags="${item.tags}" onclick="openPromptDrawer('${item.id}')">
+      <h3>${escHtml(item.name)}</h3>
+      <p>${escHtml(item.desc)}</p>
+      <div class="prompt-code">${escHtml(truncated)}</div>
+      <div class="meta">
+        <span class="tag blue">${escHtml(item.tool)}</span>
+        <span class="tag ${statusColor}">${escHtml(item.status)}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openPromptDrawer(id) {
+  const item = promptData.find(x => x.id === id);
+  if (!item) return;
+  const statusColor = item.status === 'Reusable' ? 'green' : item.status === 'Pending' ? 'yellow' : '';
+  const body = `
+    <div class="drawer-section">
+      <div class="drawer-label">Tool</div>
+      <div class="drawer-tags">
+        <span class="tag blue">${escHtml(item.tool)}</span>
+        <span class="tag ${statusColor}">${escHtml(item.status)}</span>
+      </div>
+    </div>
+    <div class="drawer-section">
+      <div class="drawer-label">Where It's Used</div>
+      <div class="drawer-muted">${escHtml(item.where)}</div>
+    </div>
+    <div class="drawer-section">
+      <div class="drawer-label">Prompt — tap to copy</div>
+      <div class="drawer-prompt-code" id="prompt-text-${escHtml(id)}">${escHtml(item.prompt)}</div>
+      <button class="drawer-copy-btn" onclick="copyPrompt('${item.id}')">📋 Copy Prompt</button>
+    </div>
+  `;
+  openDrawer(item.name, body);
+}
+
+function copyPrompt(id) {
+  const item = promptData.find(x => x.id === id);
+  if (!item) return;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(item.prompt).then(() => {
+      const btn = document.querySelector('.drawer-copy-btn');
+      if (btn) { btn.textContent = '✓ Copied!'; setTimeout(() => { btn.textContent = '📋 Copy Prompt'; }, 2000); }
+    });
+  } else {
+    // fallback
+    const ta = document.createElement('textarea');
+    ta.value = item.prompt;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    const btn = document.querySelector('.drawer-copy-btn');
+    if (btn) { btn.textContent = '✓ Copied!'; setTimeout(() => { btn.textContent = '📋 Copy Prompt'; }, 2000); }
+  }
+}
+
+function renderMoney() {
+  const grid = document.getElementById('money-cards');
+  grid.innerHTML = moneyData.map((m, i) => {
+    const statusColors = { ready:'green', 'near-ready':'yellow', planning:'yellow', 'long-term':'blue', active:'green' };
+    const statusColor = statusColors[m.status] || '';
+    const statusLabel = { ready:'Ready', 'near-ready':'Near Ready', planning:'Planning', 'long-term':'Long-Term', active:'Active' }[m.status] || m.status;
+    return `<div class="seed-card" onclick="openMoneyDrawer(${i})">
+      <h3>${escHtml(m.name)}</h3>
+      <p>${escHtml(m.desc)}</p>
+      <div class="money-price">${escHtml(m.price)}</div>
+      <div class="meta">
+        <span class="tag ${statusColor}">${statusLabel}</span>
+        <span class="tag">${escHtml(m.target)}</span>
+        <span class="tag">${escHtml(m.type)}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openMoneyDrawer(i) {
+  const m = moneyData[i];
+  const statusColors = { ready:'green', 'near-ready':'yellow', planning:'yellow', 'long-term':'blue', active:'green' };
+  const statusColor = statusColors[m.status] || '';
+  const statusLabel = { ready:'Ready', 'near-ready':'Near Ready', planning:'Planning', 'long-term':'Long-Term', active:'Active' }[m.status] || m.status;
+  const body = `
+    <div class="drawer-section">
+      <div class="drawer-label">Price Range</div>
+      <div class="drawer-price">${escHtml(m.price)}</div>
+    </div>
+    <div class="drawer-section">
+      <div class="drawer-label">Details</div>
+      <div class="drawer-tags">
+        <span class="tag ${statusColor}">${statusLabel}</span>
+        <span class="tag">${escHtml(m.target)}</span>
+        <span class="tag">${escHtml(m.type)}</span>
+      </div>
+    </div>
+    <div class="drawer-section">
+      <div class="drawer-label">Effort</div>
+      <div class="drawer-muted">${escHtml(m.effort)}</div>
+    </div>
+    <div class="drawer-section">
+      <div class="drawer-label">Reality Check</div>
+      <div class="drawer-muted">${escHtml(m.notes)}</div>
+    </div>
+    <div class="drawer-section">
+      <div class="drawer-label">Next Step</div>
+      <div class="drawer-text">${escHtml(m.nextStep)}</div>
+    </div>
+  `;
+  openDrawer(m.name, body);
+}
+
+// ══════════════════════════════════════════════════════
+//  DRAWER SYSTEM
+// ══════════════════════════════════════════════════════
+
+function openDrawer(title, bodyHtml) {
+  document.getElementById('drawer-title').textContent = title;
+  document.getElementById('drawer-body').innerHTML = bodyHtml;
+  const overlay = document.getElementById('drawer-overlay');
+  const drawer = document.getElementById('drawer');
+  overlay.classList.add('open');
+  // Force reflow before adding open class for animation
+  requestAnimationFrame(() => { drawer.classList.add('open'); });
+  document.body.style.overflow = 'hidden';
+}
+
+function closeDrawer() {
+  const overlay = document.getElementById('drawer-overlay');
+  const drawer = document.getElementById('drawer');
+  drawer.classList.remove('open');
+  setTimeout(() => {
+    overlay.classList.remove('open');
+    document.body.style.overflow = '';
+  }, 280);
+}
+
+// Close drawer on Escape key
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
+
+// Swipe down to close drawer
+let touchStartY = 0;
+document.getElementById('drawer').addEventListener('touchstart', e => {
+  touchStartY = e.touches[0].clientY;
+}, { passive: true });
+document.getElementById('drawer').addEventListener('touchend', e => {
+  const dy = e.changedTouches[0].clientY - touchStartY;
+  if (dy > 80) closeDrawer();
+}, { passive: true });
+
+// ══════════════════════════════════════════════════════
+//  FILTER + TABS
+// ══════════════════════════════════════════════════════
+
+function filterCards(containerId, tag, btn) {
+  btn.parentElement.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(containerId).querySelectorAll('.seed-card').forEach(card => {
+    const tags = (card.dataset.tags || '').split(' ');
+    card.style.display = (tag === 'all' || tags.includes(tag)) ? '' : 'none';
+  });
+}
+
+function showTab(id, btn) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('section-' + id).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ══════════════════════════════════════════════════════
+//  NEWS SECTION
+// ══════════════════════════════════════════════════════
+
 let allRecords = [];
 let currentVendor = 'all';
 
-// ── Field name normalizer ─────────────────────────────────────────────────
-// Airtable returns field names with trailing spaces — normalize everything
 function getField(fields, name) {
   if (fields[name] !== undefined) return fields[name];
-  // Try trimmed key match
   for (const key of Object.keys(fields)) {
-    if (key.trim().toLowerCase() === name.trim().toLowerCase()) {
-      return fields[key];
-    }
+    if (key.trim().toLowerCase() === name.trim().toLowerCase()) return fields[key];
   }
   return undefined;
 }
@@ -569,15 +1246,6 @@ function normVendor(v) {
   return 'other';
 }
 
-// ── Tab navigation ─────────────────────────────────────────────────────────
-function showTab(id, btn) {
-  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
-  document.getElementById('section-' + id).classList.add('active');
-  btn.classList.add('active');
-}
-
-// ── Vendor filter ──────────────────────────────────────────────────────────
 function setVendor(v, btn) {
   currentVendor = v;
   document.querySelectorAll('[data-vendor]').forEach(b => b.classList.remove('active'));
@@ -585,165 +1253,76 @@ function setVendor(v, btn) {
   renderArticles();
 }
 
-// ── Seed section filter ────────────────────────────────────────────────────
-function filterSeed(containerId, tag, btn) {
-  btn.parentElement.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  const cards = document.getElementById(containerId).querySelectorAll('.seed-card');
-  cards.forEach(card => {
-    const tags = (card.dataset.tags || '').split(' ');
-    card.style.display = (tag === 'all' || tags.includes(tag)) ? '' : 'none';
-  });
-}
-
-// ── Fetch news ─────────────────────────────────────────────────────────────
 async function loadNews() {
   const container = document.getElementById('articles-container');
   container.innerHTML = '<div class="status-msg"><span class="loader"></span>Loading articles...</div>';
-
   try {
     const res = await fetch('/api/feed');
-    if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(`API returned ${res.status}: ${errText}`);
-    }
+    if (!res.ok) { const t = await res.text(); throw new Error(`API ${res.status}: ${t}`); }
     const data = await res.json();
-
-    if (data.error) {
-      throw new Error(data.error + (data.detail ? ' — ' + data.detail : ''));
-    }
-
+    if (data.error) throw new Error(data.error + (data.detail ? ' — ' + data.detail : ''));
     allRecords = data.records || [];
-
-    if (allRecords.length === 0) {
-      container.innerHTML = '<div class="status-msg">No articles found in Airtable.</div>';
-      return;
-    }
-
-    updateStats();
-    populateSourceFilter();
-    renderArticles();
-
+    if (allRecords.length === 0) { container.innerHTML = '<div class="status-msg">No articles found in Airtable.</div>'; return; }
+    updateStats(); populateSourceFilter(); renderArticles();
   } catch (err) {
-    console.error('Feed fetch error:', err);
-    container.innerHTML = `<div class="status-msg error">
-      ⚠ Could not load articles<br><br>
-      <span style="font-size:11px">${err.message}</span><br><br>
-      <span style="font-size:11px">Check: Vercel env var AIRTABLE_PAT is set for Production, and api/feed.js is deployed.</span>
-    </div>`;
-    // Reset stats
-    ['stat-total','stat-sources','stat-summarized','stat-today'].forEach(id => {
-      document.getElementById(id).textContent = 'Err';
-    });
+    console.error(err);
+    container.innerHTML = `<div class="status-msg error">⚠ Could not load articles<br><br><span style="font-size:11px">${escHtml(err.message)}</span><br><br><span style="font-size:11px">Check: Vercel env var AIRTABLE_PAT is set for Production.</span></div>`;
+    ['stat-total','stat-sources','stat-summarized','stat-today'].forEach(id => { document.getElementById(id).textContent = 'Err'; });
   }
 }
 
-// ── Update stats ───────────────────────────────────────────────────────────
 function updateStats() {
   const total = allRecords.length;
-
-  const sources = new Set(
-    allRecords.map(r => {
-      const v = getField(r.fields, 'source name');
-      return v ? String(v).trim() : null;
-    }).filter(Boolean)
-  ).size;
-
-  const summarized = allRecords.filter(r => {
-    const s = getField(r.fields, 'Short summary') || getField(r.fields, 'Short summ');
-    return s && String(s).trim().length > 0;
-  }).length;
-
+  const sources = new Set(allRecords.map(r => { const v = getField(r.fields,'source name'); return v ? String(v).trim() : null; }).filter(Boolean)).size;
+  const summarized = allRecords.filter(r => { const s = getField(r.fields,'Short summary') || getField(r.fields,'Short summ'); return s && String(s).trim().length > 0; }).length;
   const today = new Date().toISOString().split('T')[0];
-  const todayCount = allRecords.filter(r => {
-    const ct = r.createdTime || '';
-    const pd = getField(r.fields, 'published date') || '';
-    return ct.startsWith(today) || pd.startsWith(today);
-  }).length;
-
+  const todayCount = allRecords.filter(r => { const ct = r.createdTime || ''; const pd = getField(r.fields,'published date') || ''; return ct.startsWith(today) || pd.startsWith(today); }).length;
   document.getElementById('stat-total').textContent = total;
   document.getElementById('stat-sources').textContent = sources;
   document.getElementById('stat-summarized').textContent = summarized;
   document.getElementById('stat-today').textContent = todayCount;
 }
 
-// ── Populate source filter dropdown ────────────────────────────────────────
 function populateSourceFilter() {
   const sel = document.getElementById('source-filter');
-  const sources = [...new Set(
-    allRecords.map(r => {
-      const v = getField(r.fields, 'source name');
-      return v ? String(v).trim() : null;
-    }).filter(Boolean)
-  )].sort();
-
-  // Keep "All Sources" option, replace rest
+  const sources = [...new Set(allRecords.map(r => { const v = getField(r.fields,'source name'); return v ? String(v).trim() : null; }).filter(Boolean))].sort();
   sel.innerHTML = '<option value="all">All Sources</option>';
-  sources.forEach(s => {
-    const opt = document.createElement('option');
-    opt.value = s;
-    opt.textContent = s;
-    sel.appendChild(opt);
-  });
+  sources.forEach(s => { const o = document.createElement('option'); o.value = s; o.textContent = s; sel.appendChild(o); });
 }
 
-// ── Render articles ────────────────────────────────────────────────────────
 function renderArticles() {
   const container = document.getElementById('articles-container');
   const searchVal = document.getElementById('search').value.trim().toLowerCase();
   const sourceVal = document.getElementById('source-filter').value;
-
   let filtered = allRecords.filter(r => {
     const f = r.fields;
-    const vendor = normVendor(getField(f, 'vendor'));
-    const sourceName = String(getField(f, 'source name') || '').trim();
-    const title = String(getField(f, 'Title') || '').toLowerCase();
-    const summary = String(
-      getField(f, 'Short summary') || getField(f, 'Short summ') || ''
-    ).toLowerCase();
-
+    const vendor = normVendor(getField(f,'vendor'));
+    const sourceName = String(getField(f,'source name') || '').trim();
+    const title = String(getField(f,'Title') || '').toLowerCase();
+    const summary = String(getField(f,'Short summary') || getField(f,'Short summ') || '').toLowerCase();
     if (currentVendor !== 'all' && vendor !== currentVendor) return false;
     if (sourceVal !== 'all' && sourceName !== sourceVal) return false;
     if (searchVal && !title.includes(searchVal) && !summary.includes(searchVal)) return false;
     return true;
   });
-
-  // Sort newest first by createdTime
-  filtered.sort((a, b) => {
-    const ta = new Date(a.createdTime || 0).getTime();
-    const tb = new Date(b.createdTime || 0).getTime();
-    return tb - ta;
-  });
-
-  if (filtered.length === 0) {
-    container.innerHTML = '<div class="status-msg">No articles match your filters.</div>';
-    return;
-  }
-
+  filtered.sort((a,b) => new Date(b.createdTime||0) - new Date(a.createdTime||0));
+  if (filtered.length === 0) { container.innerHTML = '<div class="status-msg">No articles match your filters.</div>'; return; }
+  const vendorLabels = { google:'Google', anthropic:'Anthropic', openai:'OpenAI', other:'Other' };
   container.innerHTML = filtered.map(r => {
     const f = r.fields;
-    const title = getField(f, 'Title') || 'Untitled';
-    const url = getField(f, 'URL') || '#';
-    const vendor = normVendor(getField(f, 'vendor'));
-    const sourceName = String(getField(f, 'source name') || '').trim() || 'Unknown';
-    const summary = getField(f, 'Short summary') || getField(f, 'Short summ') || '';
-
-    // Date display
+    const title = getField(f,'Title') || 'Untitled';
+    const url = getField(f,'URL') || '#';
+    const vendor = normVendor(getField(f,'vendor'));
+    const sourceName = String(getField(f,'source name') || '').trim() || 'Unknown';
+    const summary = getField(f,'Short summary') || getField(f,'Short summ') || '';
     const rawDate = r.createdTime || '';
     let dateStr = '';
-    if (rawDate) {
-      const d = new Date(rawDate);
-      dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    }
-
-    const vendorLabels = { google:'Google', anthropic:'Anthropic', openai:'OpenAI', other:'Other' };
-    const badgeCls = 'badge badge-' + vendor;
-
+    if (rawDate) { const d = new Date(rawDate); dateStr = d.toLocaleDateString('en-US', { month:'short', day:'numeric' }); }
     return `<div class="article-card">
       <div class="card-top">
         <div class="card-title"><a href="${escHtml(url)}" target="_blank" rel="noopener">${escHtml(title)}</a></div>
         <div class="card-badges">
-          <span class="${badgeCls}">${vendorLabels[vendor]}</span>
+          <span class="badge badge-${vendor}">${vendorLabels[vendor]}</span>
           <span class="badge badge-source">${escHtml(sourceName)}</span>
         </div>
       </div>
@@ -756,44 +1335,18 @@ function renderArticles() {
 }
 
 function escHtml(str) {
-  return String(str)
-    .replace(/&/g,'&amp;')
-    .replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;')
-    .replace(/"/g,'&quot;');
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-// ── Skills seed data ───────────────────────────────────────────────────────
-const skills = [
-  { name:'Prompt Engineering', cur:3, max:5, active:true },
-  { name:'Make Automations', cur:3, max:5, active:true },
-  { name:'Airtable', cur:2, max:5, active:true },
-  { name:'Vercel / Serverless', cur:2, max:5, active:true },
-  { name:'HTML + CSS + JS', cur:2, max:5, active:false },
-  { name:'Gemini API', cur:2, max:5, active:true },
-  { name:'Airtable Formulas', cur:1, max:5, active:false },
-  { name:'Google Analytics', cur:3, max:5, active:false },
-  { name:'Business Systems Design', cur:3, max:5, active:true },
-  { name:'Electrical Trade Knowledge', cur:2, max:5, active:false },
-  { name:'Sales + Outreach', cur:2, max:5, active:false },
-  { name:'Financial Literacy', cur:2, max:5, active:false },
-];
-const skillGrid = document.getElementById('skill-cards');
-skills.forEach(s => {
-  const pct = Math.round((s.cur / s.max) * 100);
-  skillGrid.innerHTML += `<div class="seed-card">
-    <div style="display:flex;justify-content:space-between;align-items:center">
-      <h3>${s.name}</h3>
-      ${s.active ? '<span class="tag green">Active</span>' : ''}
-    </div>
-    <div class="progress-bar" style="margin:10px 0 4px">
-      <div class="progress-fill" style="width:${pct}%"></div>
-    </div>
-    <div style="font-size:10px;color:var(--muted)">${s.cur}/5 — Target: ${s.max}/5</div>
-  </div>`;
-});
-
-// ── Boot ───────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════
+//  BOOT
+// ══════════════════════════════════════════════════════
+renderLearning();
+renderCerts();
+renderProjects();
+renderSkills();
+renderPrompts();
+renderMoney();
 loadNews();
 </script>
 </body>
