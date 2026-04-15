@@ -4,136 +4,664 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AI Command Center</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #1a1a1a; padding: 24px; }
-  h1 { font-size: 20px; font-weight: 600; margin-bottom: 20px; }
-  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
-  .stat { background: #fff; border-radius: 10px; padding: 14px 16px; border: 1px solid #e5e5e5; }
-  .stat-label { font-size: 12px; color: #888; margin-bottom: 4px; }
-  .stat-value { font-size: 24px; font-weight: 600; }
-  .controls { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
-  .controls input, .controls select { padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; background: #fff; }
-  .controls input { flex: 1; min-width: 200px; }
-  .feed { display: flex; flex-direction: column; gap: 10px; }
-  .card { background: #fff; border-radius: 10px; padding: 16px; border: 1px solid #e5e5e5; }
-  .card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
-  .card-title { font-size: 14px; font-weight: 600; line-height: 1.4; flex: 1; }
-  .badge { font-size: 11px; padding: 3px 9px; border-radius: 999px; white-space: nowrap; flex-shrink: 0; font-weight: 500; }
-  .badge-other { background: #e1f5ee; color: #0f6e56; }
-  .badge-google { background: #e6f1fb; color: #185fa5; }
-  .badge-anthropic { background: #eeedfe; color: #534ab7; }
-  .summary { font-size: 13px; color: #555; line-height: 1.6; }
-  .card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
-  .source-tag { font-size: 11px; color: #aaa; }
-  .read-link { font-size: 12px; color: #185fa5; text-decoration: none; }
-  .read-link:hover { text-decoration: underline; }
-  .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-  .refresh-btn { font-size: 13px; padding: 7px 16px; border: 1px solid #ddd; border-radius: 8px; background: #fff; cursor: pointer; }
-  .refresh-btn:hover { background: #f5f5f5; }
-  .count { font-size: 13px; color: #888; }
-  .empty { text-align: center; padding: 40px; color: #888; }
-  .error { background: #fff0f0; color: #c0392b; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; font-size: 13px; }
-  @media(max-width: 600px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+:root {
+  --bg: #0d0f12;
+  --surface: #13161b;
+  --surface2: #1a1e25;
+  --surface3: #21262f;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.12);
+  --text: #e8eaed;
+  --text2: #8b8fa8;
+  --text3: #555a6e;
+  --accent: #4f8cff;
+  --accent2: #2563eb;
+  --green: #22c55e;
+  --amber: #f59e0b;
+  --red: #ef4444;
+  --purple: #a78bfa;
+  --teal: #2dd4bf;
+  --radius: 10px;
+  --radius-sm: 6px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; font-size: 14px; }
+
+.sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; height: 100vh; z-index: 100; }
+.sidebar-logo { padding: 20px 18px 16px; border-bottom: 1px solid var(--border); }
+.sidebar-logo .logo-text { font-size: 13px; font-weight: 600; color: var(--text); letter-spacing: 0.05em; text-transform: uppercase; }
+.sidebar-logo .logo-sub { font-size: 11px; color: var(--text3); margin-top: 2px; font-family: 'DM Mono', monospace; }
+.nav { padding: 12px 10px; flex: 1; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: var(--radius-sm); cursor: pointer; color: var(--text2); font-size: 13px; font-weight: 500; transition: all 0.15s; margin-bottom: 2px; user-select: none; }
+.nav-item:hover { background: var(--surface2); color: var(--text); }
+.nav-item.active { background: rgba(79,140,255,0.12); color: var(--accent); }
+.nav-icon { font-size: 15px; width: 18px; text-align: center; }
+.nav-badge { margin-left: auto; background: var(--surface3); color: var(--text3); font-size: 10px; font-family: 'DM Mono', monospace; padding: 2px 6px; border-radius: 99px; }
+.nav-item.active .nav-badge { background: rgba(79,140,255,0.2); color: var(--accent); }
+.sidebar-footer { padding: 14px 18px; border-top: 1px solid var(--border); }
+.status-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--green); margin-right: 6px; }
+.status-text { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; }
+
+.main { margin-left: 220px; flex: 1; min-height: 100vh; }
+.section { display: none; padding: 28px 32px; max-width: 1100px; }
+.section.active { display: block; }
+
+.page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+.page-title { font-size: 20px; font-weight: 600; color: var(--text); }
+.page-subtitle { font-size: 11px; color: var(--text3); margin-top: 3px; font-family: 'DM Mono', monospace; }
+
+.stats-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 24px; }
+.stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+.stat-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 8px; font-family: 'DM Mono', monospace; }
+.stat-value { font-size: 26px; font-weight: 600; font-family: 'DM Mono', monospace; color: var(--text); }
+.c-accent { color: var(--accent); }
+.c-green { color: var(--green); }
+.c-amber { color: var(--amber); }
+.c-purple { color: var(--purple); }
+
+.controls { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+.controls input, .controls select { background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius-sm); color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 13px; padding: 8px 12px; outline: none; transition: border-color 0.15s; }
+.controls input { flex: 1; min-width: 180px; }
+.controls input::placeholder { color: var(--text3); }
+.controls input:focus, .controls select:focus { border-color: var(--accent); }
+
+.btn { padding: 8px 16px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid var(--border2); background: var(--surface2); color: var(--text); font-family: 'DM Sans', sans-serif; transition: all 0.15s; }
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+.count-label { font-size: 12px; color: var(--text3); font-family: 'DM Mono', monospace; }
+
+.feed { display: flex; flex-direction: column; gap: 10px; }
+.article-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; transition: border-color 0.15s; }
+.article-card:hover { border-color: var(--border2); }
+.article-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
+.article-title { font-size: 14px; font-weight: 500; color: var(--text); line-height: 1.45; flex: 1; }
+.article-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.article-summary { font-size: 13px; color: var(--text2); line-height: 1.65; }
+.article-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+.article-source { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; }
+.read-link { font-size: 12px; color: var(--accent); text-decoration: none; font-weight: 500; }
+.read-link:hover { text-decoration: underline; }
+
+.badge { font-size: 10px; font-weight: 600; padding: 3px 9px; border-radius: 99px; white-space: nowrap; letter-spacing: 0.04em; text-transform: uppercase; font-family: 'DM Mono', monospace; }
+.b-other { background: rgba(139,143,168,0.12); color: var(--text2); }
+.b-google { background: rgba(79,140,255,0.14); color: var(--accent); }
+.b-anthropic { background: rgba(167,139,250,0.14); color: var(--purple); }
+.b-openai { background: rgba(45,212,191,0.14); color: var(--teal); }
+.b-green { background: rgba(34,197,94,0.14); color: var(--green); }
+.b-amber { background: rgba(245,158,11,0.14); color: var(--amber); }
+.b-red { background: rgba(239,68,68,0.14); color: var(--red); }
+.b-purple { background: rgba(167,139,250,0.14); color: var(--purple); }
+.b-teal { background: rgba(45,212,191,0.14); color: var(--teal); }
+
+.empty-state, .loading-state { text-align: center; padding: 48px 24px; color: var(--text3); font-size: 13px; font-family: 'DM Mono', monospace; }
+.error-state { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); border-radius: var(--radius-sm); padding: 12px 16px; color: var(--red); font-size: 13px; margin-bottom: 16px; }
+
+.grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+
+.data-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; }
+.data-card-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 3px; line-height: 1.35; }
+.data-card-sub { font-size: 11px; color: var(--text3); margin-bottom: 10px; font-family: 'DM Mono', monospace; }
+.data-card-body { font-size: 13px; color: var(--text2); line-height: 1.6; }
+.data-card-footer { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; }
+.tag-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+
+.skill-bar-track { background: var(--surface2); border-radius: 99px; height: 4px; margin-top: 6px; }
+.skill-bar-fill { height: 4px; border-radius: 99px; background: var(--accent); transition: width 0.4s ease; }
+
+.table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; overflow-x: auto; }
+.data-table { width: 100%; border-collapse: collapse; min-width: 600px; }
+.data-table th { text-align: left; font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.07em; padding: 10px 14px; border-bottom: 1px solid var(--border); font-family: 'DM Mono', monospace; font-weight: 500; }
+.data-table td { padding: 12px 14px; border-bottom: 1px solid var(--border); font-size: 13px; color: var(--text2); vertical-align: middle; }
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover td { background: var(--surface2); }
+.td-main { color: var(--text) !important; font-weight: 500; }
+
+.mono-code { background: var(--surface2); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 12px; color: var(--text2); line-height: 1.6; font-family: 'DM Mono', monospace; margin-bottom: 8px; }
+
+@media (max-width: 900px) {
+  .sidebar { width: 180px; }
+  .main { margin-left: 180px; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .grid-3 { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 640px) {
+  .sidebar { display: none; }
+  .main { margin-left: 0; }
+  .section { padding: 20px 16px; }
+  .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+}
 </style>
 </head>
 <body>
 
-<div class="header-row">
-  <h1>AI Command Center</h1>
-  <div style="display:flex;gap:12px;align-items:center;">
-    <span class="count" id="count"></span>
-    <button class="refresh-btn" onclick="load()">Refresh</button>
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-text">AI Command Center</div>
+    <div class="logo-sub">ralph215 · v2.0</div>
+  </div>
+  <div class="nav">
+    <div class="nav-item active" onclick="showSection('news',this)">
+      <span class="nav-icon">📡</span> News
+      <span class="nav-badge" id="nav-news-count">—</span>
+    </div>
+    <div class="nav-item" onclick="showSection('learning',this)">
+      <span class="nav-icon">📚</span> Learning
+      <span class="nav-badge">5</span>
+    </div>
+    <div class="nav-item" onclick="showSection('certificates',this)">
+      <span class="nav-icon">🏆</span> Certificates
+      <span class="nav-badge">5</span>
+    </div>
+    <div class="nav-item" onclick="showSection('projects',this)">
+      <span class="nav-icon">⚙️</span> Projects
+      <span class="nav-badge">5</span>
+    </div>
+    <div class="nav-item" onclick="showSection('skills',this)">
+      <span class="nav-icon">📈</span> Skills
+      <span class="nav-badge">12</span>
+    </div>
+    <div class="nav-item" onclick="showSection('prompts',this)">
+      <span class="nav-icon">⚡</span> Prompts
+      <span class="nav-badge">5</span>
+    </div>
+    <div class="nav-item" onclick="showSection('money',this)">
+      <span class="nav-icon">💰</span> Money
+      <span class="nav-badge">6</span>
+    </div>
+  </div>
+  <div class="sidebar-footer">
+    <span class="status-dot"></span>
+    <span class="status-text">live feed active</span>
+  </div>
+</nav>
+
+<div class="main">
+
+<!-- NEWS -->
+<div class="section active" id="section-news">
+  <div class="page-header">
+    <div>
+      <div class="page-title">AI News Feed</div>
+      <div class="page-subtitle">auto-pulls every 15 min · 6 sources active</div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;">
+      <span class="count-label" id="news-count-label"></span>
+      <button class="btn" onclick="loadFeed()">↻ Refresh</button>
+    </div>
+  </div>
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-label">Total articles</div><div class="stat-value c-accent" id="sn-total">—</div></div>
+    <div class="stat-card"><div class="stat-label">Sources</div><div class="stat-value" id="sn-sources">—</div></div>
+    <div class="stat-card"><div class="stat-label">Summarized</div><div class="stat-value c-green" id="sn-summarized">—</div></div>
+    <div class="stat-card"><div class="stat-label">Today</div><div class="stat-value c-amber" id="sn-today">—</div></div>
+  </div>
+  <div class="controls">
+    <input type="text" id="news-search" placeholder="Search articles..." oninput="renderNews()" />
+    <select id="news-vendor" onchange="renderNews()">
+      <option value="">All vendors</option>
+      <option value="other">Other</option>
+      <option value="google">Google</option>
+      <option value="anthropic">Anthropic</option>
+      <option value="openai">OpenAI</option>
+    </select>
+    <select id="news-source" onchange="renderNews()">
+      <option value="">All sources</option>
+    </select>
+  </div>
+  <div id="news-error" style="display:none" class="error-state"></div>
+  <div id="news-feed" class="feed"><div class="loading-state">fetching articles...</div></div>
+</div>
+
+<!-- LEARNING -->
+<div class="section" id="section-learning">
+  <div class="page-header">
+    <div><div class="page-title">Learning Tracker</div><div class="page-subtitle">courses · resources · progress</div></div>
+  </div>
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-label">Total courses</div><div class="stat-value c-accent">5</div></div>
+    <div class="stat-card"><div class="stat-label">Exploring</div><div class="stat-value c-amber">2</div></div>
+    <div class="stat-card"><div class="stat-label">Free resources</div><div class="stat-value c-green">4</div></div>
+    <div class="stat-card"><div class="stat-label">Cert available</div><div class="stat-value c-purple">3</div></div>
+  </div>
+  <div class="controls">
+    <input type="text" id="learn-search" placeholder="Search courses..." oninput="renderLearning()" />
+    <select id="learn-status" onchange="renderLearning()">
+      <option value="">All status</option>
+      <option value="not started">Not started</option>
+      <option value="exploring">Exploring</option>
+      <option value="in progress">In progress</option>
+      <option value="later">Later</option>
+    </select>
+    <select id="learn-cost" onchange="renderLearning()">
+      <option value="">All costs</option>
+      <option value="free">Free</option>
+      <option value="paid">Paid</option>
+    </select>
+  </div>
+  <div id="learning-grid" class="grid-2"></div>
+</div>
+
+<!-- CERTIFICATES -->
+<div class="section" id="section-certificates">
+  <div class="page-header">
+    <div><div class="page-title">Certificates</div><div class="page-subtitle">credentials · credibility · proof of work</div></div>
+  </div>
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-label">Total tracked</div><div class="stat-value c-accent">5</div></div>
+    <div class="stat-card"><div class="stat-label">Earned</div><div class="stat-value c-green">0</div></div>
+    <div class="stat-card"><div class="stat-label">High credibility</div><div class="stat-value c-purple">2</div></div>
+    <div class="stat-card"><div class="stat-label">Free certs</div><div class="stat-value c-amber">2</div></div>
+  </div>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr><th>Certificate</th><th>Provider</th><th>Cost</th><th>Credibility</th><th>Status</th><th>Jobs</th><th>Clients</th></tr>
+      </thead>
+      <tbody id="certs-tbody"></tbody>
+    </table>
   </div>
 </div>
 
-<div class="stats">
-  <div class="stat"><div class="stat-label">Total articles</div><div class="stat-value" id="s-total">—</div></div>
-  <div class="stat"><div class="stat-label">Sources</div><div class="stat-value" id="s-sources">—</div></div>
-  <div class="stat"><div class="stat-label">Summarized</div><div class="stat-value" id="s-summarized">—</div></div>
-  <div class="stat"><div class="stat-label">Today</div><div class="stat-value" id="s-today">—</div></div>
+<!-- PROJECTS -->
+<div class="section" id="section-projects">
+  <div class="page-header">
+    <div><div class="page-title">Projects</div><div class="page-subtitle">builds · portfolio · proof of work</div></div>
+  </div>
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-label">Total</div><div class="stat-value c-accent">5</div></div>
+    <div class="stat-card"><div class="stat-label">Active</div><div class="stat-value c-green">2</div></div>
+    <div class="stat-card"><div class="stat-label">Portfolio ready</div><div class="stat-value c-amber">1</div></div>
+    <div class="stat-card"><div class="stat-label">Planned</div><div class="stat-value c-purple">3</div></div>
+  </div>
+  <div id="projects-grid" class="grid-2"></div>
 </div>
 
-<div class="controls">
-  <input type="text" id="search" placeholder="Search articles..." oninput="render()" />
-  <select id="fv" onchange="render()">
-    <option value="">All vendors</option>
-    <option value="other ">Other</option>
-    <option value="google">Google</option>
-    <option value="Anthropic">Anthropic</option>
-  </select>
-  <select id="fs" onchange="render()">
-    <option value="">All sources</option>
-  </select>
+<!-- SKILLS -->
+<div class="section" id="section-skills">
+  <div class="page-header">
+    <div><div class="page-title">Skills</div><div class="page-subtitle">current level → target level</div></div>
+  </div>
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-label">Total skills</div><div class="stat-value c-accent">12</div></div>
+    <div class="stat-card"><div class="stat-label">Working level</div><div class="stat-value c-green">5</div></div>
+    <div class="stat-card"><div class="stat-label">Beginner</div><div class="stat-value c-amber">7</div></div>
+    <div class="stat-card"><div class="stat-label">Sellable target</div><div class="stat-value c-purple">3</div></div>
+  </div>
+  <div class="controls">
+    <input type="text" id="skill-search" placeholder="Search skills..." oninput="renderSkills()" />
+    <select id="skill-cat" onchange="renderSkills()">
+      <option value="">All categories</option>
+      <option value="AI">AI</option>
+      <option value="AI coding">AI coding</option>
+      <option value="web development">Web development</option>
+      <option value="programming">Programming</option>
+      <option value="frontend">Frontend</option>
+      <option value="no-code systems">No-code</option>
+      <option value="automation">Automation</option>
+      <option value="technical">Technical</option>
+      <option value="product/system design">Product / Systems</option>
+      <option value="systems">Systems</option>
+    </select>
+  </div>
+  <div id="skills-grid" class="grid-3"></div>
 </div>
 
-<div id="error" style="display:none" class="error"></div>
-<div id="feed" class="feed">Loading...</div>
+<!-- PROMPTS -->
+<div class="section" id="section-prompts">
+  <div class="page-header">
+    <div><div class="page-title">Prompts & Workflows</div><div class="page-subtitle">reusable · tested · ready to use</div></div>
+  </div>
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-label">Total prompts</div><div class="stat-value c-accent">5</div></div>
+    <div class="stat-card"><div class="stat-label">Reusable</div><div class="stat-value c-green">5</div></div>
+    <div class="stat-card"><div class="stat-label">Claude</div><div class="stat-value c-purple">2</div></div>
+    <div class="stat-card"><div class="stat-label">ChatGPT</div><div class="stat-value c-amber">2</div></div>
+  </div>
+  <div class="controls">
+    <input type="text" id="prompt-search" placeholder="Search prompts..." oninput="renderPrompts()" />
+    <select id="prompt-tool" onchange="renderPrompts()">
+      <option value="">All tools</option>
+      <option value="Claude">Claude</option>
+      <option value="ChatGPT">ChatGPT</option>
+      <option value="Claude/ChatGPT">Both</option>
+    </select>
+  </div>
+  <div id="prompts-grid" class="grid-2"></div>
+</div>
+
+<!-- MONEY -->
+<div class="section" id="section-money">
+  <div class="page-header">
+    <div><div class="page-title">Money & Services</div><div class="page-subtitle">offers · readiness · revenue path</div></div>
+  </div>
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-label">Service offers</div><div class="stat-value c-accent">6</div></div>
+    <div class="stat-card"><div class="stat-label">Beginner ready</div><div class="stat-value c-green">3</div></div>
+    <div class="stat-card"><div class="stat-label">Learning stage</div><div class="stat-value c-amber">2</div></div>
+    <div class="stat-card"><div class="stat-label">Top ceiling</div><div class="stat-value c-purple">$2k+</div></div>
+  </div>
+  <div id="money-grid" class="grid-2"></div>
+</div>
+
+</div>
 
 <script>
-let all = [];
+// NAV
+function showSection(id, el) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('section-' + id).classList.add('active');
+  el.classList.add('active');
+}
 
-async function load() {
-  document.getElementById('feed').innerHTML = 'Loading...';
-  document.getElementById('error').style.display = 'none';
+// UTILS
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function statusBadgeClass(s) {
+  s = (s||'').toLowerCase();
+  if (['active','done','earned','yes'].includes(s)) return 'b-green';
+  if (['exploring','in progress','research','learning'].includes(s)) return 'b-amber';
+  if (['later'].includes(s)) return 'b-red';
+  if (['not counted'].includes(s)) return 'b-other';
+  return 'b-other';
+}
+
+function levelPct(level) {
+  return { beginner:20, working:50, confident:75, sellable:100 }[level] || 20;
+}
+
+function levelBar(curr, target) {
+  const pct = levelPct(curr);
+  return `<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-top:6px;margin-bottom:3px;font-family:'DM Mono',monospace;">
+    <span>${esc(curr)}</span><span style="color:var(--accent);">→ ${esc(target)}</span></div>
+    <div class="skill-bar-track"><div class="skill-bar-fill" style="width:${pct}%"></div></div>`;
+}
+
+function fmt(iso) {
+  if (!iso) return '';
+  try { return new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric'}); } catch { return ''; }
+}
+
+// NEWS
+let newsRecs = [];
+
+function normVendor(raw) {
+  const v = (raw||'').trim().toLowerCase();
+  if (v === 'google') return 'google';
+  if (v === 'anthropic') return 'anthropic';
+  if (v === 'openai') return 'openai';
+  return 'other';
+}
+function vendorLabel(v) { return {google:'Google',anthropic:'Anthropic',openai:'OpenAI',other:'Other'}[v]||'Other'; }
+function vendorBadge(v) { return {google:'b-google',anthropic:'b-anthropic',openai:'b-openai',other:'b-other'}[v]||'b-other'; }
+
+async function loadFeed() {
+  document.getElementById('news-feed').innerHTML = '<div class="loading-state">fetching articles...</div>';
+  document.getElementById('news-error').style.display = 'none';
   try {
     const res = await fetch('/api/feed');
     const data = await res.json();
-    if (data.error) throw new Error(data.error.message);
-    all = (data.records || []).map(r => ({ id: r.id, ct: r.createdTime, ...r.fields }));
+    if (data.error) throw new Error(data.error.message||'Airtable error');
+    newsRecs = (data.records||[]).map(r => ({
+      id: r.id,
+      ct: r.createdTime,
+      title: r.fields['Title']||'',
+      url: r.fields['URL']||'#',
+      vendor: normVendor(r.fields['vendor']),
+      source: (r.fields['source name']||'').trim(),
+      summary: r.fields['Short summary']||r.fields['Short summ']||'',
+      published: r.fields['published date']||r.createdTime||''
+    }));
     buildSourceFilter();
-    updateStats();
-    render();
+    updateNewsStats();
+    renderNews();
   } catch(e) {
-    document.getElementById('error').textContent = 'Error: ' + e.message;
-    document.getElementById('error').style.display = 'block';
-    document.getElementById('feed').innerHTML = '';
+    document.getElementById('news-error').textContent = 'Error: ' + e.message;
+    document.getElementById('news-error').style.display = 'block';
+    document.getElementById('news-feed').innerHTML = '';
   }
 }
 
 function buildSourceFilter() {
-  const sources = [...new Set(all.map(r => r['source name']).filter(Boolean))].sort();
-  const sel = document.getElementById('fs');
+  const sources = [...new Set(newsRecs.map(r=>r.source).filter(Boolean))].sort();
+  const sel = document.getElementById('news-source');
   sel.innerHTML = '<option value="">All sources</option>';
-  sources.forEach(s => { const o = document.createElement('option'); o.value = s; o.textContent = s; sel.appendChild(o); });
+  sources.forEach(s => { const o = document.createElement('option'); o.value=s; o.textContent=s; sel.appendChild(o); });
 }
 
-function updateStats() {
-  const today = new Date().toISOString().slice(0, 10);
-  document.getElementById('s-total').textContent = all.length;
-  document.getElementById('s-sources').textContent = new Set(all.map(r => r['source name']).filter(Boolean)).size;
-  document.getElementById('s-summarized').textContent = all.filter(r => r['Short summary'] || r['Short summ']).length;
-  document.getElementById('s-today').textContent = all.filter(r => r.ct && r.ct.startsWith(today)).length;
+function updateNewsStats() {
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('sn-total').textContent = newsRecs.length;
+  document.getElementById('sn-sources').textContent = new Set(newsRecs.map(r=>r.source).filter(Boolean)).size;
+  document.getElementById('sn-summarized').textContent = newsRecs.filter(r=>r.summary).length;
+  document.getElementById('sn-today').textContent = newsRecs.filter(r=>r.ct&&r.ct.startsWith(today)).length;
+  document.getElementById('nav-news-count').textContent = newsRecs.length;
 }
 
-function render() {
-  const q = document.getElementById('search').value.toLowerCase();
-  const fv = document.getElementById('fv').value;
-  const fs = document.getElementById('fs').value;
-  let recs = all.filter(r => {
-    if (q && !(r.Title||'').toLowerCase().includes(q) && !(r['Short summary']||r['Short summ']||'').toLowerCase().includes(q)) return false;
+function renderNews() {
+  const q = (document.getElementById('news-search').value||'').toLowerCase();
+  const fv = document.getElementById('news-vendor').value;
+  const fs = document.getElementById('news-source').value;
+  let recs = newsRecs.filter(r => {
+    if (q && !r.title.toLowerCase().includes(q) && !r.summary.toLowerCase().includes(q)) return false;
     if (fv && r.vendor !== fv) return false;
-    if (fs && r['source name'] !== fs) return false;
+    if (fs && r.source !== fs) return false;
     return true;
   });
-  document.getElementById('count').textContent = recs.length + ' articles';
-  if (!recs.length) { document.getElementById('feed').innerHTML = '<div class="empty">No results.</div>'; return; }
-  document.getElementById('feed').innerHTML = recs.map(r => {
-    const v = (r.vendor||'').trim().toLowerCase();
-    const bc = v === 'google' ? 'badge-google' : v === 'anthropic' ? 'badge-anthropic' : 'badge-other';
-    const bl = v === 'google' ? 'Google' : v === 'anthropic' ? 'Anthropic' : 'Other';
-    const summary = r['Short summary'] || r['Short summ'] || '';
-    return `<div class="card">
-      <div class="card-top"><div class="card-title">${esc(r.Title||'Untitled')}</div><span class="badge ${bc}">${bl}</span></div>
-      ${summary ? `<div class="summary">${esc(summary)}</div>` : ''}
-      <div class="card-footer"><span class="source-tag">${esc(r['source name']||'')}</span><a class="read-link" href="${esc(r.URL||'#')}" target="_blank">Read article</a></div>
-    </div>`;
-  }).join('');
+  document.getElementById('news-count-label').textContent = recs.length + ' articles';
+  if (!recs.length) { document.getElementById('news-feed').innerHTML = '<div class="empty-state">No articles match your filters.</div>'; return; }
+  document.getElementById('news-feed').innerHTML = recs.map(r => `
+    <div class="article-card">
+      <div class="article-top">
+        <div class="article-title">${esc(r.title)}</div>
+        <span class="badge ${vendorBadge(r.vendor)}">${esc(vendorLabel(r.vendor))}</span>
+      </div>
+      <div class="article-meta">
+        <span class="article-source">${esc(r.source)}</span>
+        ${r.published ? `<span style="color:var(--text3);font-size:11px;">·</span><span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;">${esc(fmt(r.published))}</span>` : ''}
+      </div>
+      ${r.summary ? `<div class="article-summary">${esc(r.summary)}</div>` : ''}
+      <div class="article-footer">
+        <span class="article-source">${esc(r.source||'—')}</span>
+        <a class="read-link" href="${esc(r.url)}" target="_blank">Read article →</a>
+      </div>
+    </div>`).join('');
 }
 
-function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+// LEARNING
+const LEARNING = [
+  {course_name:"AI Fluency: Framework & Foundations",provider:"Anthropic",resource_type:"course",official_or_third_party:"official",free_or_paid:"free",certificate_available:"yes",status:"not started",next_lesson:"Module 1",notes:"Start here for strong AI fundamentals",one_workflow_learned:""},
+  {course_name:"OpenAI Academy – ChatGPT at Work",provider:"OpenAI",resource_type:"course collection",official_or_third_party:"official",free_or_paid:"free",certificate_available:"unknown",status:"not started",next_lesson:"Prompt Engineering",notes:"Good practical reps for work use cases",one_workflow_learned:""},
+  {course_name:"Clief Notes – Foundation",provider:"Jake Van Clief",resource_type:"community course",official_or_third_party:"third-party",free_or_paid:"free",certificate_available:"unknown",status:"exploring",next_lesson:"The Foundation",notes:"Folders, routing, structure, Claude workflows",one_workflow_learned:"folder architecture"},
+  {course_name:"Simon Says AI – Free Community",provider:"Simon Says AI",resource_type:"community course",official_or_third_party:"third-party",free_or_paid:"free",certificate_available:"unknown",status:"exploring",next_lesson:"Free guides",notes:"Claude Code, automation, monetization",one_workflow_learned:"automation ideas"},
+  {course_name:"Google Cloud Generative AI Leader Prep",provider:"Google Cloud",resource_type:"certification prep",official_or_third_party:"official",free_or_paid:"paid",certificate_available:"yes",status:"later",next_lesson:"Review exam guide",notes:"Later-stage formal credential",one_workflow_learned:""}
+];
 
-load();
+function renderLearning() {
+  const q = (document.getElementById('learn-search').value||'').toLowerCase();
+  const fs = document.getElementById('learn-status').value;
+  const fc = document.getElementById('learn-cost').value;
+  const rows = LEARNING.filter(r => {
+    if (q && !r.course_name.toLowerCase().includes(q) && !r.provider.toLowerCase().includes(q)) return false;
+    if (fs && r.status !== fs) return false;
+    if (fc && r.free_or_paid !== fc) return false;
+    return true;
+  });
+  if (!rows.length) { document.getElementById('learning-grid').innerHTML = '<div class="empty-state">No courses match.</div>'; return; }
+  document.getElementById('learning-grid').innerHTML = rows.map(r => `
+    <div class="data-card">
+      <div class="data-card-title">${esc(r.course_name)}</div>
+      <div class="data-card-sub">${esc(r.provider)} · ${esc(r.resource_type)}</div>
+      <div class="tag-row">
+        <span class="badge ${statusBadgeClass(r.status)}">${esc(r.status)}</span>
+        <span class="badge ${r.free_or_paid==='free'?'b-green':'b-amber'}">${esc(r.free_or_paid)}</span>
+        <span class="badge ${r.official_or_third_party==='official'?'b-teal':'b-other'}">${esc(r.official_or_third_party)}</span>
+        ${r.certificate_available==='yes'?'<span class="badge b-purple">cert avail</span>':''}
+      </div>
+      <div class="data-card-footer">
+        <span style="font-size:12px;color:var(--text3);">Next: ${esc(r.next_lesson)}</span>
+        ${r.one_workflow_learned?`<span style="font-size:12px;color:var(--teal);">✓ ${esc(r.one_workflow_learned)}</span>`:''}
+      </div>
+      ${r.notes?`<div style="margin-top:8px;font-size:12px;color:var(--text3);">${esc(r.notes)}</div>`:''}
+    </div>`).join('');
+}
+
+// CERTIFICATES
+const CERTS = [
+  {certificate_name:"Anthropic AI Fluency Certificate",provider:"Anthropic",cost:"free",status:"planned",credibility_level:"high",useful_for_jobs:"yes",useful_for_clients:"yes"},
+  {certificate_name:"OpenAI Academy Certificate",provider:"OpenAI",cost:"unknown",status:"research",credibility_level:"medium",useful_for_jobs:"maybe",useful_for_clients:"maybe"},
+  {certificate_name:"Google Cloud Generative AI Leader",provider:"Google Cloud",cost:"$99",status:"later",credibility_level:"high",useful_for_jobs:"yes",useful_for_clients:"yes"},
+  {certificate_name:"Clief Notes Completion",provider:"Jake Van Clief",cost:"unknown",status:"not counted",credibility_level:"low",useful_for_jobs:"no",useful_for_clients:"maybe"},
+  {certificate_name:"Simon Says AI Pro Completion",provider:"Simon Says AI",cost:"$49/mo",status:"not counted",credibility_level:"low",useful_for_jobs:"no",useful_for_clients:"maybe"}
+];
+
+function credBadge(c) { return {high:'b-green',medium:'b-amber',low:'b-other'}[(c||'').toLowerCase()]||'b-other'; }
+
+function renderCerts() {
+  document.getElementById('certs-tbody').innerHTML = CERTS.map(r => `
+    <tr>
+      <td class="td-main">${esc(r.certificate_name)}</td>
+      <td>${esc(r.provider)}</td>
+      <td style="font-family:'DM Mono',monospace;">${esc(r.cost)}</td>
+      <td><span class="badge ${credBadge(r.credibility_level)}">${esc(r.credibility_level)}</span></td>
+      <td><span class="badge ${statusBadgeClass(r.status)}">${esc(r.status)}</span></td>
+      <td>${esc(r.useful_for_jobs)}</td>
+      <td>${esc(r.useful_for_clients)}</td>
+    </tr>`).join('');
+}
+
+// PROJECTS
+const PROJECTS = [
+  {project_name:"AI Command Center Dashboard",description:"Live AI article dashboard with filters and article feed",stack:"Vercel · Airtable · Claude · Make",status:"active",live_link:"https://ai-command-center-api.vercel.app/",lesson_learned:"Live deploy matters more than perfection",portfolio_ready:"yes"},
+  {project_name:"AI Learning Tracker",description:"Dashboard to track courses, certificates, and AI skill growth",stack:"Airtable · Claude",status:"planned",live_link:"",lesson_learned:"Need one system instead of scattered notes",portfolio_ready:"no"},
+  {project_name:"Prompt Vault",description:"Organized library of prompts, workflows, and reusable templates",stack:"Airtable or web app",status:"planned",live_link:"",lesson_learned:"Good prompts are assets, not random chat history",portfolio_ready:"no"},
+  {project_name:"Service Offer Stack",description:"Package websites + dashboards + AI workflows into sellable offers",stack:"Docs · Airtable · website",status:"planned",live_link:"",lesson_learned:"Need a real money path, not just learning",portfolio_ready:"no"},
+  {project_name:"Philaprep Business System",description:"Ops system for prep business workflows and dashboards",stack:"Airtable · forms · website · Claude",status:"active",live_link:"",lesson_learned:"AI should support real business operations",portfolio_ready:"maybe"}
+];
+
+function renderProjects() {
+  document.getElementById('projects-grid').innerHTML = PROJECTS.map(r => `
+    <div class="data-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:3px;">
+        <div class="data-card-title">${esc(r.project_name)}</div>
+        <span class="badge ${statusBadgeClass(r.status)}">${esc(r.status)}</span>
+      </div>
+      <div class="data-card-sub">${esc(r.stack)}</div>
+      <div class="data-card-body">${esc(r.description)}</div>
+      <div class="data-card-footer">
+        <span style="font-size:12px;color:var(--text3);">💡 ${esc(r.lesson_learned)}</span>
+        ${r.live_link?`<a class="read-link" href="${esc(r.live_link)}" target="_blank">Live →</a>`:`<span class="badge ${r.portfolio_ready==='yes'?'b-green':'b-other'}">${r.portfolio_ready==='yes'?'portfolio ready':'in progress'}</span>`}
+      </div>
+    </div>`).join('');
+}
+
+// SKILLS
+const SKILLS = [
+  {skill_name:"Prompting",category:"AI",current_level:"working",target_level:"confident",last_practiced:"today",notes:"Need sharper prompts for building and debugging"},
+  {skill_name:"Claude Code",category:"AI coding",current_level:"beginner",target_level:"sellable",last_practiced:"today",notes:"Big opportunity area"},
+  {skill_name:"ChatGPT Workflows",category:"AI",current_level:"working",target_level:"confident",last_practiced:"today",notes:"Good for planning, research, structure"},
+  {skill_name:"HTML",category:"web development",current_level:"beginner",target_level:"working",last_practiced:"",notes:"Need basics down"},
+  {skill_name:"CSS",category:"web development",current_level:"beginner",target_level:"working",last_practiced:"",notes:"Need layout and styling reps"},
+  {skill_name:"JavaScript",category:"programming",current_level:"beginner",target_level:"confident",last_practiced:"",notes:"Key bottleneck skill"},
+  {skill_name:"React",category:"frontend",current_level:"beginner",target_level:"working",last_practiced:"",notes:"Needed for app/dashboard building"},
+  {skill_name:"Airtable",category:"no-code systems",current_level:"working",target_level:"confident",last_practiced:"today",notes:"Already building with it"},
+  {skill_name:"Make",category:"automation",current_level:"beginner",target_level:"working",last_practiced:"today",notes:"Need cleaner automation success"},
+  {skill_name:"APIs",category:"technical",current_level:"beginner",target_level:"working",last_practiced:"",notes:"Need to understand inputs/outputs better"},
+  {skill_name:"Dashboards",category:"product/system design",current_level:"working",target_level:"sellable",last_practiced:"today",notes:"AI Command Center is first proof"},
+  {skill_name:"Automation Design",category:"systems",current_level:"beginner",target_level:"sellable",last_practiced:"",notes:"Strong money skill if developed"}
+];
+
+function renderSkills() {
+  const q = (document.getElementById('skill-search').value||'').toLowerCase();
+  const fc = document.getElementById('skill-cat').value;
+  const rows = SKILLS.filter(r => {
+    if (q && !r.skill_name.toLowerCase().includes(q) && !r.notes.toLowerCase().includes(q)) return false;
+    if (fc && r.category !== fc) return false;
+    return true;
+  });
+  if (!rows.length) { document.getElementById('skills-grid').innerHTML = '<div class="empty-state">No skills match.</div>'; return; }
+  document.getElementById('skills-grid').innerHTML = rows.map(r => `
+    <div class="data-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+        <div class="data-card-title" style="margin-bottom:0;">${esc(r.skill_name)}</div>
+        ${r.last_practiced==='today'?'<span class="badge b-green" style="font-size:9px;padding:2px 7px;">active</span>':''}
+      </div>
+      <div style="font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;margin-bottom:8px;">${esc(r.category)}</div>
+      ${levelBar(r.current_level, r.target_level)}
+      ${r.notes?`<div style="margin-top:8px;font-size:12px;color:var(--text3);">${esc(r.notes)}</div>`:''}
+    </div>`).join('');
+}
+
+// PROMPTS
+const PROMPTS = [
+  {prompt_name:"Dashboard Fix Prompt",tool:"Claude",purpose:"debug dashboard issues",prompt_text:"Fix the dashboard so stats, vendors, sources, and summaries display correctly",result_quality:"good",reusable:"yes",notes:"Use for UI/data cleanup"},
+  {prompt_name:"Learning Resource Evaluator",tool:"ChatGPT",purpose:"evaluate AI courses and creators",prompt_text:"Analyze this learning resource for credibility, usefulness, beginner value, and money relevance",result_quality:"good",reusable:"yes",notes:"Good for deciding what to study"},
+  {prompt_name:"Offer Builder",tool:"ChatGPT",purpose:"turn skill into service",prompt_text:"Turn these skills into beginner-friendly service offers with pricing ladders",result_quality:"good",reusable:"yes",notes:"Useful for money planning"},
+  {prompt_name:"Workflow Architect",tool:"Claude",purpose:"design systems",prompt_text:"Design a clean workflow for this idea using folders, routing, prompts, and tools",result_quality:"good",reusable:"yes",notes:"Inspired by Clief Notes type thinking"},
+  {prompt_name:"Article Summarizer",tool:"Claude/ChatGPT",purpose:"summarize AI news",prompt_text:"Summarize this article in plain English and explain why it matters",result_quality:"good",reusable:"yes",notes:"Core command center use"}
+];
+
+function renderPrompts() {
+  const q = (document.getElementById('prompt-search').value||'').toLowerCase();
+  const ft = document.getElementById('prompt-tool').value;
+  const rows = PROMPTS.filter(r => {
+    if (q && !r.prompt_name.toLowerCase().includes(q) && !r.purpose.toLowerCase().includes(q)) return false;
+    if (ft && r.tool !== ft) return false;
+    return true;
+  });
+  if (!rows.length) { document.getElementById('prompts-grid').innerHTML = '<div class="empty-state">No prompts match.</div>'; return; }
+  document.getElementById('prompts-grid').innerHTML = rows.map(r => `
+    <div class="data-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:3px;">
+        <div class="data-card-title">${esc(r.prompt_name)}</div>
+        <span class="badge ${r.tool==='Claude'?'b-purple':r.tool==='ChatGPT'?'b-teal':'b-amber'}">${esc(r.tool)}</span>
+      </div>
+      <div class="data-card-sub">${esc(r.purpose)}</div>
+      <div class="mono-code">${esc(r.prompt_text)}</div>
+      <div class="data-card-footer">
+        <span style="font-size:12px;color:var(--text3);">${esc(r.notes)}</span>
+        <span class="badge b-green">reusable</span>
+      </div>
+    </div>`).join('');
+}
+
+// MONEY
+const MONEY = [
+  {service_name:"One-Page Website",problem_solved:"Gives businesses a clean online presence",target_client:"local businesses",delivery_method:"website build",price_range:"$300–800",current_readiness:"beginner",notes:"Strong first offer"},
+  {service_name:"Airtable Tracker Setup",problem_solved:"Organizes leads, clients, orders, or content",target_client:"small businesses",delivery_method:"Airtable system",price_range:"$200–700",current_readiness:"beginner",notes:"Easy stack-on service"},
+  {service_name:"AI Content Workflow",problem_solved:"Helps businesses create content faster",target_client:"creators, small businesses",delivery_method:"prompt/workflow setup",price_range:"$250–1,000",current_readiness:"beginner",notes:"Strong with AI tools"},
+  {service_name:"Dashboard Build",problem_solved:"Gives business owners a control panel for key info",target_client:"service businesses, operators",delivery_method:"dashboard + database",price_range:"$500–1,500",current_readiness:"learning",notes:"AI Command Center is proof path"},
+  {service_name:"Intake + Automation Setup",problem_solved:"Automates form submissions, routing, follow-up",target_client:"local businesses",delivery_method:"forms + Airtable + automation",price_range:"$300–1,200",current_readiness:"learning",notes:"Good recurring value"},
+  {service_name:"AI Command Center Build",problem_solved:"Personalized AI news + learning + workflow dashboard",target_client:"AI learners, builders, founders",delivery_method:"custom dashboard",price_range:"$500–2,000+",current_readiness:"later",notes:"Signature offer if polished"}
+];
+
+function renderMoney() {
+  document.getElementById('money-grid').innerHTML = MONEY.map(r => `
+    <div class="data-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:3px;">
+        <div class="data-card-title">${esc(r.service_name)}</div>
+        <span class="badge ${r.current_readiness==='beginner'?'b-green':r.current_readiness==='learning'?'b-amber':'b-red'}">${esc(r.current_readiness)}</span>
+      </div>
+      <div class="data-card-sub">${esc(r.target_client)} · ${esc(r.delivery_method)}</div>
+      <div class="data-card-body">${esc(r.problem_solved)}</div>
+      <div class="data-card-footer">
+        <span style="font-size:14px;font-weight:600;color:var(--green);font-family:'DM Mono',monospace;">${esc(r.price_range)}</span>
+        <span style="font-size:12px;color:var(--text3);">${esc(r.notes)}</span>
+      </div>
+    </div>`).join('');
+}
+
+// INIT
+loadFeed();
+renderLearning();
+renderCerts();
+renderProjects();
+renderSkills();
+renderPrompts();
+renderMoney();
 </script>
 </body>
 </html>
