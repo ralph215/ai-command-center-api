@@ -1,49 +1,28 @@
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  const pat = process.env.AIRTABLE_PAT;
-
-  if (!pat) {
-    return res.status(500).json({ error: 'AIRTABLE_PAT not set in Vercel environment variables' });
-  }
+async function loadNews() {
+  const statsEls = {
+    total: document.getElementById('stat-total'),
+    sources: document.getElementById('stat-sources'),
+    summarized: document.getElementById('stat-summarized'),
+    today: document.getElementById('stat-today')
+  };
+  const container = document.getElementById('news-container'); // adjust ID to match yours
 
   try {
-    const allRecords = [];
-    let offset = null;
+    const res = await fetch('/api/feed');
+    if (!res.ok) throw new Error(`API returned ${res.status}`);
+    const data = await res.json();
+    const records = data.records || [];
 
-    do {
-      const url = new URL(
-        'https://api.airtable.com/v0/appFFVHaVSXzcouF2/tblyqIvAKntnv9WQD'
-      );
-      url.searchParams.set('pageSize', '100');
-      if (offset) url.searchParams.set('offset', offset);
+    if (records.length === 0) {
+      container.innerHTML = '<p style="color:#888">No articles found in Airtable yet.</p>';
+      return;
+    }
 
-      const response = await fetch(url.toString(), {
-        headers: { Authorization: `Bearer ${pat}` }
-      });
-
-      if (!response.ok) {
-        const errBody = await response.text();
-        return res.status(response.status).json({
-          error: `Airtable returned ${response.status}`,
-          detail: errBody
-        });
-      }
-
-      const page = await response.json();
-      allRecords.push(...(page.records || []));
-      offset = page.offset || null;
-
-    } while (offset);
-
-    return res.status(200).json({ records: allRecords });
+    // your existing render logic here
+    renderNews(records, statsEls, container);
 
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    container.innerHTML = `<p style="color:#e55;font-weight:600">⚠️ Failed to load news: ${err.message}</p><p style="color:#888;font-size:13px">Check that /api/feed is deployed and AIRTABLE_PAT is set in Vercel.</p>`;
+    Object.values(statsEls).forEach(el => { if (el) el.textContent = 'Error'; });
   }
 }
