@@ -650,7 +650,7 @@ hr.div{border:none;border-top:1px solid var(--b1);margin:20px 0;}
         <button class="btn btn-sm btn-accent" onclick="newSessionTutor()">New Session</button>
       </div>
 
-      <div style="font-size:10px;color:var(--t3);margin-top:6px;font-family:'JetBrains Mono',monospace;">Session restores on refresh until you start a new one</div>
+      <div style="font-size:10px;color:var(--t3);margin-top:6px;font-family:'JetBrains Mono',monospace;">Sessions persist across refreshes. Use "New Session" to start fresh.</div>
 
       <div style="display:flex;gap:8px;margin-top:8px;">
         <button class="btn btn-amber btn-sm" style="flex:1;" onclick="iDontGetIt()">🤔 I Still Don't Get It</button>
@@ -671,6 +671,10 @@ hr.div{border:none;border-top:1px solid var(--b1);margin:20px 0;}
       <div class="card">
         <div class="section-head"><div class="dot" style="background:var(--green)"></div>Session Log</div>
         <div id="tutor-log" style="font-size:11px;color:var(--t2);line-height:1.6;max-height:160px;overflow-y:auto;"></div>
+      </div>
+      <div class="card">
+        <div class="section-head"><div class="dot" style="background:var(--a2)"></div>Tutor History</div>
+        <div id="tutor-history-panel" style="font-size:11px;color:var(--t2);line-height:1.6;max-height:200px;overflow-y:auto;"></div>
       </div>
     </div>
   </div>
@@ -1590,92 +1594,176 @@ function deleteOffer(idx){
 // =====================================================================
 // AI TUTOR
 // =====================================================================
-let tutorHistory=[];
-let currentMode='explain';
-let currentLevel='beginner';
-let tutorIsLoading=false; // Flag to prevent recursive saves during load
-let tutorSessionRestored=false; // Flag to prevent double restoration
+let tutorHistory = [];
+let currentMode = 'explain';
+let currentLevel = 'beginner';
+let tutorIsLoading = false; // Flag to prevent recursive saves during load
+let tutorSessionRestored = false; // Flag to prevent double restoration
 
-// SessionStorage for tutor persistence
-const tutorSS={
-  save(){
-    if(tutorIsLoading) return; // Don't save while loading
-    const logEntries=[];
-    const logDiv=document.getElementById('tutor-log');
-    if(logDiv){
-      logDiv.querySelectorAll('div').forEach(entry=>{
-        const text=entry.textContent||'';
-        if(text) logEntries.push(text);
-      });
-    }
-    const data={
-      topic:document.getElementById('tutor-topic')?.value||'',
-      mode:currentMode,
-      level:currentLevel,
-      history:tutorHistory,
-      log:logEntries
+// Tutor sessions storage (localStorage for persistence across sessions)
+let tutorSessions = [];
+let activeTutorSessionId = null;
+
+// localStorage for tutor persistence (replaces sessionStorage)
+const tutorLS = {
+  save() {
+    if (tutorIsLoading) return; // Don't save while loading
+    const data = {
+      sessions: tutorSessions,
+      activeSessionId: activeTutorSessionId
     };
-    sessionStorage.setItem('tutor-session',JSON.stringify(data));
+    localStorage.setItem('tutor-sessions', JSON.stringify(data));
   },
-  load(){
-    const data=sessionStorage.getItem('tutor-session');
-    console.log('tutorSS.load called, data exists:', !!data);
-    if(!data) return false;
-    try{
-      tutorIsLoading=true;
-      const parsed=JSON.parse(data);
-      console.log('Parsed tutor session:', parsed);
-      
-      // Restore basic state
-      currentMode=parsed.mode||'explain';
-      currentLevel=parsed.level||'beginner';
-      tutorHistory=Array.isArray(parsed.history)?parsed.history:[];
-      
-      console.log('Restored state - mode:', currentMode, 'level:', currentLevel, 'history length:', tutorHistory.length);
-      
-      // Restore topic
-      const topicEl=document.getElementById('tutor-topic');
-      if(topicEl) topicEl.value=parsed.topic||'';
-      
-      // Update UI without triggering saves
-      document.querySelectorAll('.mode-btn').forEach(b=>{
-        b.classList.toggle('active',b.dataset.mode===currentMode);
-      });
-      document.querySelectorAll('.level-btn').forEach(b=>{
-        b.classList.toggle('active',b.dataset.level===currentLevel);
-      });
-      updateChipsVisibility();
-      
-      // Rebuild chat from history
-      // Delay final render to the UI layer to avoid duplicate chat items
-      
-      // Restore session log
-      if(Array.isArray(parsed.log) && parsed.log.length>0){
-        const log=document.getElementById('tutor-log');
-        if(log){
-          log.innerHTML=''; // Clear existing log
-          for(const entry of parsed.log){
-            const div=document.createElement('div');
-            div.style.cssText='padding:4px 0;border-bottom:1px solid var(--b1);margin-bottom:4px;';
-            div.textContent=entry;
-            log.appendChild(div);
-          }
-          log.scrollTop=log.scrollHeight;
+  load() {
+    const data = localStorage.getItem('tutor-sessions');
+    if (!data) {
+      // Try to migrate from old sessionStorage
+      this.migrateFromSessionStorage();
+      return false;
+    }
+    try {
+      tutorIsLoading = true;
+      const parsed = JSON.parse(data);
+      tutorSessions = Array.isArray(parsed.sessions) ? parsed.sessions : [];
+      activeTutorSessionId = parsed.activeSessionId || null;
+
+      // Load active session data
+      if (activeTutorSessionId) {
+        const activeSession = tutorSessions.find(s => s.id === activeTutorSessionId);
+        if (activeSession) {
+          this.loadSessionData(activeSession);
         }
       }
-      
-      tutorSessionRestored=true;
-      tutorIsLoading=false;
+
+      tutorSessionRestored = true;
+      tutorIsLoading = false;
       return true;
-    }catch(e){
-      console.error('Error loading tutor session:', e);
-      tutorIsLoading=false;
+    } catch (e) {
+      console.error('Error loading tutor sessions:', e);
+      tutorIsLoading = false;
       return false;
     }
   },
-  clear(){
-    sessionStorage.removeItem('tutor-session');
-    tutorSessionRestored=false;
+  migrateFromSessionStorage() {
+    const oldData = sessionStorage.getItem('tutor-session');
+    if (oldData) {
+      try {
+        const parsed = JSON.parse(oldData);
+        // Create a new session from old data
+        const migratedSession = {
+          id: 'session-' + Date.now(),
+          title: parsed.topic || 'Migrated Session',
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          topic: parsed.topic || '',
+          selectedMode: parsed.mode || 'explain',
+          selectedLevel: parsed.level || 'beginner',
+          messages: Array.isArray(parsed.history) ? parsed.history : [],
+          sessionLog: Array.isArray(parsed.log) ? parsed.log : []
+        };
+        tutorSessions = [migratedSession];
+        activeTutorSessionId = migratedSession.id;
+        this.loadSessionData(migratedSession);
+        tutorSessionRestored = true;
+        this.save();
+        // Clear old sessionStorage
+        sessionStorage.removeItem('tutor-session');
+        console.log('Migrated old tutor session to new format');
+      } catch (e) {
+        console.error('Error migrating tutor session:', e);
+      }
+    }
+  },
+  loadSessionData(session) {
+    currentMode = session.selectedMode || 'explain';
+    currentLevel = session.selectedLevel || 'beginner';
+    tutorHistory = Array.isArray(session.messages) ? session.messages : [];
+
+    // Restore topic
+    const topicEl = document.getElementById('tutor-topic');
+    if (topicEl) topicEl.value = session.topic || '';
+
+    // Update UI
+    document.querySelectorAll('.mode-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.mode === currentMode);
+    });
+    document.querySelectorAll('.level-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.level === currentLevel);
+    });
+    updateChipsVisibility();
+
+    // Restore session log
+    if (Array.isArray(session.sessionLog) && session.sessionLog.length > 0) {
+      const log = document.getElementById('tutor-log');
+      if (log) {
+        log.innerHTML = ''; // Clear existing log
+        for (const entry of session.sessionLog) {
+          const div = document.createElement('div');
+          div.style.cssText = 'padding:4px 0;border-bottom:1px solid var(--b1);margin-bottom:4px;';
+          div.textContent = entry;
+          log.appendChild(div);
+        }
+        log.scrollTop = log.scrollHeight;
+      }
+    }
+  },
+  createNewSession(topic = '') {
+    const newSession = {
+      id: 'session-' + Date.now(),
+      title: topic || 'Untitled Tutor Session',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      topic: topic,
+      selectedMode: 'explain',
+      selectedLevel: 'beginner',
+      messages: [],
+      sessionLog: []
+    };
+    tutorSessions.unshift(newSession); // Add to beginning
+    activeTutorSessionId = newSession.id;
+    this.save();
+    return newSession;
+  },
+  updateActiveSession() {
+    if (!activeTutorSessionId) return;
+    const session = tutorSessions.find(s => s.id === activeTutorSessionId);
+    if (session) {
+      session.updatedAt = Date.now();
+      session.topic = document.getElementById('tutor-topic')?.value || '';
+      session.selectedMode = currentMode;
+      session.selectedLevel = currentLevel;
+      session.messages = tutorHistory;
+      // Update session log
+      const logEntries = [];
+      const logDiv = document.getElementById('tutor-log');
+      if (logDiv) {
+        logDiv.querySelectorAll('div').forEach(entry => {
+          const text = entry.textContent || '';
+          if (text) logEntries.push(text);
+        });
+      }
+      session.sessionLog = logEntries;
+      this.save();
+    }
+  },
+  deleteSession(sessionId) {
+    tutorSessions = tutorSessions.filter(s => s.id !== sessionId);
+    if (activeTutorSessionId === sessionId) {
+      activeTutorSessionId = tutorSessions.length > 0 ? tutorSessions[0].id : null;
+    }
+    this.save();
+  },
+  switchToSession(sessionId) {
+    const session = tutorSessions.find(s => s.id === sessionId);
+    if (session) {
+      // Save current session first
+      this.updateActiveSession();
+      // Switch to new session
+      activeTutorSessionId = sessionId;
+      this.loadSessionData(session);
+      renderTutorHistory();
+      this.save();
+    }
   }
 };
 
@@ -1685,7 +1773,7 @@ function setMode(mode,suffix){
     b.classList.toggle('active',b.dataset.mode===mode);
   });
   updateChipsVisibility();
-  if(!tutorIsLoading) tutorSS.save();
+  if(!tutorIsLoading) tutorLS.updateActiveSession();
 }
 
 function setLearningLevel(level){
@@ -1693,7 +1781,7 @@ function setLearningLevel(level){
   document.querySelectorAll('.level-btn').forEach(b=>{
     b.classList.toggle('active',b.dataset.level===level);
   });
-  if(!tutorIsLoading) tutorSS.save();
+  if(!tutorIsLoading) tutorLS.updateActiveSession();
 }
 
 function getTutorSystem(){
@@ -1752,18 +1840,56 @@ function buildOneHourProject(){
   sendTutor();
 }
 
-function renderTutorHistory(){
-  const chat=document.getElementById('tutor-chat');
-  if(!chat) return;
-  chat.innerHTML=''; // Clear existing DOM
-  if(!Array.isArray(tutorHistory) || tutorHistory.length===0) return;
+function renderTutorHistoryPanel(){
+  const historyPanel = document.getElementById('tutor-history-panel');
+  if (!historyPanel) return;
   
-  for(const msg of tutorHistory){
-    if(msg.role==='user' && msg.content){
-      appendChat('user',msg.content,true);
-    }else if(msg.role==='assistant' && msg.content){
-      appendChat('ai',msg.content,true);
-    }
+  historyPanel.innerHTML = '';
+  
+  if (tutorSessions.length === 0) {
+    historyPanel.innerHTML = '<div style="font-size:11px;color:var(--t3);text-align:center;padding:20px;">No saved sessions yet</div>';
+    return;
+  }
+  
+  tutorSessions.forEach(session => {
+    const sessionDiv = document.createElement('div');
+    sessionDiv.className = 'tutor-session-item';
+    sessionDiv.style.cssText = `
+      padding: 10px;
+      border-bottom: 1px solid var(--b1);
+      cursor: pointer;
+      transition: background 0.15s;
+      ${session.id === activeTutorSessionId ? 'background: rgba(34,211,238,.08); border-left: 3px solid var(--accent);' : ''}
+    `;
+    sessionDiv.onclick = () => switchToTutorSession(session.id);
+    
+    const title = session.title || 'Untitled Tutor Session';
+    const date = new Date(session.updatedAt).toLocaleDateString();
+    const messageCount = session.messages ? session.messages.length : 0;
+    
+    sessionDiv.innerHTML = `
+      <div style="font-size:12px;font-weight:500;color:var(--text);margin-bottom:4px;">${title}</div>
+      <div style="font-size:10px;color:var(--t3);margin-bottom:6px;">${date} • ${messageCount} messages</div>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-sm btn-ghost" style="padding:2px 6px;font-size:9px;" onclick="event.stopPropagation(); switchToTutorSession('${session.id}')">Open</button>
+        <button class="btn btn-sm btn-ghost" style="padding:2px 6px;font-size:9px;color:var(--red);" onclick="event.stopPropagation(); deleteTutorSession('${session.id}')">Delete</button>
+      </div>
+    `;
+    
+    historyPanel.appendChild(sessionDiv);
+  });
+}
+
+function switchToTutorSession(sessionId) {
+  tutorLS.switchToSession(sessionId);
+  renderTutorHistoryPanel();
+}
+
+function deleteTutorSession(sessionId) {
+  if (confirm('Delete this tutor session? This cannot be undone.')) {
+    tutorLS.deleteSession(sessionId);
+    renderTutorHistoryPanel();
+    // If we deleted the active session, the switchToSession will have set a new active one
   }
 }
 
@@ -1777,9 +1903,18 @@ async function sendTutor(){
   appendChat('user',userMsg);
   tutorHistory.push({role:'user',content:userMsg});
   
+  // Update session title if it's still default and we have a meaningful message
+  if (activeTutorSessionId) {
+    const session = tutorSessions.find(s => s.id === activeTutorSessionId);
+    if (session && (!session.title || session.title === 'Untitled Tutor Session') && userMsg.length > 5) {
+      session.title = userMsg.substring(0, 50) + (userMsg.length > 50 ? '...' : '');
+      renderTutorHistoryPanel();
+    }
+  }
+  
   // Better loading indicator (not saved to history)
   appendChat('ai','<div class="tutor-loading"><span>Thinking</span><div class="tutor-loading-dots"><span class="tutor-loading-dot"></span><span class="tutor-loading-dot"></span><span class="tutor-loading-dot"></span></div></div>');
-  tutorSS.save();
+  tutorLS.updateActiveSession();
 
   try{
     const r=await fetch('/api/tutor',{
@@ -1811,7 +1946,7 @@ async function sendTutor(){
     if(!r.ok){
       // Error message - show but don't save to history
       appendChat('ai',`<div class="err-msg">API error: ${text}</div>`);
-      tutorSS.save();
+      tutorLS.updateActiveSession();
       return;
     }
 
@@ -1819,12 +1954,12 @@ async function sendTutor(){
     appendChat('ai',text);
     tutorHistory.push({role:'assistant',content:text});
     logTutor(userMsg,text);
-    tutorSS.save();
+    tutorLS.updateActiveSession();
   }catch(e){
     removeLastChat(); // Remove loading indicator
     // Error message - show but don't save to history
     appendChat('ai',`<div class="err-msg">Error: ${e.message}</div>`);
-    tutorSS.save();
+    tutorLS.updateActiveSession();
   }
 }
 
@@ -1875,18 +2010,21 @@ function clearTutor(){
   document.getElementById('tutor-chat').innerHTML='';
   document.getElementById('tutor-log').textContent='';
   tutorSessionRestored=false; // Reset flag so new session can be created
-  tutorSS.clear();
+  tutorLS.updateActiveSession();
 }
 
 function newSessionTutor(){
-  // Clear the chat conversation
-  clearTutor();
+  // Save current session first
+  tutorLS.updateActiveSession();
   
-  // Reset topic
-  document.getElementById('tutor-topic').value='';
+  // Get current topic
+  const topic = document.getElementById('tutor-topic').value.trim();
+  
+  // Create a fresh blank tutor session
+  const newSession = tutorLS.createNewSession(topic);
   
   // Reset follow-up input
-  document.getElementById('tutor-input').value='';
+  document.getElementById('tutor-input').value = '';
   
   // Reset mode to Explain
   setMode('explain','Explain clearly');
@@ -1894,8 +2032,15 @@ function newSessionTutor(){
   // Reset learning level to Beginner
   setLearningLevel('beginner');
   
+  // Clear chat and log for new session
+  document.getElementById('tutor-chat').innerHTML = '';
+  document.getElementById('tutor-log').textContent = '';
+  
   // Update chips visibility
   updateChipsVisibility();
+  
+  // Render history panel
+  renderTutorHistoryPanel();
 }
 
 function iDontGetIt(){
@@ -1911,17 +2056,22 @@ function logTutor(q,a){
   entry.innerHTML=`<span style="color:var(--accent);">${currentMode}:</span> ${q.substring(0,60)}${q.length>60?'...':''}`;
   log.appendChild(entry);
   log.scrollTop=log.scrollHeight;
-  // Save log to sessionStorage
-  tutorSS.save();
+  // Save log to localStorage
+  tutorLS.updateActiveSession();
 }
 
 function renderTutor(){
   console.log('renderTutor called, tutorSessionRestored:', tutorSessionRestored, 'tutorHistory length:', tutorHistory?.length || 0);
   
-  // Restore tutor session only once
+  // Restore tutor sessions only once
   if(!tutorSessionRestored){
-    console.log('Loading tutor session...');
-    tutorSS.load();
+    console.log('Loading tutor sessions...');
+    tutorLS.load();
+    
+    // If no sessions exist, create a default one
+    if (tutorSessions.length === 0) {
+      tutorLS.createNewSession('');
+    }
   }
   
   // If we have a restored session, make sure the DOM is rendered
@@ -1929,6 +2079,9 @@ function renderTutor(){
     console.log('Rendering tutor history...');
     renderTutorHistory();
   }
+  
+  // Render history panel
+  renderTutorHistoryPanel();
   
   // Update chips visibility based on topic
   updateChipsVisibility();
@@ -1938,7 +2091,15 @@ function renderTutor(){
   if(topicInput && !topicInput._chipsListener){
     topicInput.addEventListener('input',()=>{
       updateChipsVisibility();
-      tutorSS.save();
+      // Update session title if it was empty or using default
+      if (activeTutorSessionId) {
+        const session = tutorSessions.find(s => s.id === activeTutorSessionId);
+        if (session && (!session.title || session.title === 'Untitled Tutor Session')) {
+          session.title = topicInput.value.trim() || 'Untitled Tutor Session';
+          renderTutorHistoryPanel();
+        }
+      }
+      tutorLS.updateActiveSession();
     });
     topicInput._chipsListener=true;
   }
@@ -2159,8 +2320,8 @@ function init(){
   updateStreakDisplay();
   updateNotesBadge();
   
-  // Restore tutor session on page load so level, mode, topic, history, and log persist.
-  tutorSS.load();
+  // Restore tutor sessions on page load
+  tutorLS.load();
   
   renderHome();
   fetchNews();
