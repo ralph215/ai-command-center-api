@@ -2105,8 +2105,48 @@ function renderTutor(){
     }
   }
   
-  // Always rebuild the chat from the active session
-  renderTutorHistory();
+  // Always rebuild the UI from the active session
+  const activeSession = tutorSessions.find(s => s.id === activeTutorSessionId);
+  if(activeSession){
+    // Set topic
+    const topicEl = document.getElementById('tutor-topic');
+    if(topicEl) topicEl.value = activeSession.topic || '';
+    
+    // Set input to ''
+    const inputEl = document.getElementById('tutor-input');
+    if(inputEl) inputEl.value = '';
+    
+    // Set mode/level
+    currentMode = activeSession.selectedMode || 'explain';
+    currentLevel = activeSession.selectedLevel || 'beginner';
+    document.querySelectorAll('.mode-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.mode === currentMode);
+    });
+    document.querySelectorAll('.level-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.level === currentLevel);
+    });
+    
+    // Set tutorHistory
+    tutorHistory = Array.isArray(activeSession.messages) ? activeSession.messages : [];
+    
+    // Clear and rebuild log
+    const log = document.getElementById('tutor-log');
+    if(log){
+      log.innerHTML = '';
+      if(Array.isArray(activeSession.sessionLog) && activeSession.sessionLog.length > 0){
+        for (const entry of activeSession.sessionLog) {
+          const div = document.createElement('div');
+          div.style.cssText = 'padding:4px 0;border-bottom:1px solid var(--b1);margin-bottom:4px;';
+          div.textContent = entry;
+          log.appendChild(div);
+        }
+        log.scrollTop = log.scrollHeight;
+      }
+    }
+    
+    // Clear and rebuild chat
+    renderTutorHistory();
+  }
   
   // Render history panel
   renderTutorHistoryPanel();
