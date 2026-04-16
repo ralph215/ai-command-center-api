@@ -1544,7 +1544,7 @@ function getTutorSystem(){
 async function sendTutor(){
   const topic=document.getElementById('tutor-topic').value.trim();
   const input=document.getElementById('tutor-input');
-  const userMsg=input.value.trim()||(topic?`Teach me about: ${topic}`:'');
+  const userMsg=input.value.trim()||topic;
   if(!userMsg) return;
 
   input.value='';
@@ -1597,9 +1597,31 @@ function appendChat(role,text){
   const chat=document.getElementById('tutor-chat');
   const div=document.createElement('div');
   div.className=`msg ${role}`;
-  div.innerHTML=text.replace(/\n/g,'<br>');
+  div.innerHTML=role==='ai' ? formatTutorText(text) : escapeHtml(text).replace(/\n/g,'<br>');
   chat.appendChild(div);
   chat.scrollTop=chat.scrollHeight;
+}
+
+function escapeHtml(text){
+  return String(text)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
+}
+
+function formatTutorText(text){
+  const escaped=escapeHtml(text || '');
+  return escaped
+    .replace(/^###\s+(.+)$/gm,'<div style="font-size:14px;font-weight:700;color:var(--text);margin:10px 0 6px;">$1</div>')
+    .replace(/^##\s+(.+)$/gm,'<div style="font-size:15px;font-weight:700;color:var(--text);margin:10px 0 6px;">$1</div>')
+    .replace(/^#\s+(.+)$/gm,'<div style="font-size:16px;font-weight:700;color:var(--accent);margin:10px 0 6px;">$1</div>')
+    .replace(/^[-*]\s+(.+)$/gm,'• $1')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/`([^`]+)`/g,'<code style="background:var(--s2);border:1px solid var(--b1);border-radius:4px;padding:1px 5px;font-family:\'JetBrains Mono\',monospace;font-size:11px;color:var(--accent);">$1</code>')
+    .replace(/\n\n/g,'<br><br>')
+    .replace(/\n/g,'<br>');
 }
 
 function removeLastChat(){
