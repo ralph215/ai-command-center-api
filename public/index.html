@@ -647,7 +647,10 @@ hr.div{border:none;border-top:1px solid var(--b1);margin:20px 0;}
         <input class="input" id="tutor-input" placeholder="Ask a follow-up question..." onkeydown="if(event.key==='Enter')sendTutor()" style="flex:1;">
         <button class="btn btn-primary btn-sm" onclick="sendTutor()">Send</button>
         <button class="btn btn-sm btn-ghost" onclick="clearTutor()">Clear</button>
+        <button class="btn btn-sm btn-accent" onclick="newSessionTutor()">New Session</button>
       </div>
+
+      <div style="font-size:10px;color:var(--t3);margin-top:6px;font-family:'JetBrains Mono',monospace;">Session restores on refresh until you start a new one</div>
 
       <div style="display:flex;gap:8px;margin-top:8px;">
         <button class="btn btn-amber btn-sm" style="flex:1;" onclick="iDontGetIt()">🤔 I Still Don't Get It</button>
@@ -1873,6 +1876,26 @@ function clearTutor(){
   document.getElementById('tutor-log').textContent='';
   tutorSessionRestored=false; // Reset flag so new session can be created
   tutorSS.clear();
+}
+
+function newSessionTutor(){
+  // Clear the chat conversation
+  clearTutor();
+  
+  // Reset topic
+  document.getElementById('tutor-topic').value='';
+  
+  // Reset follow-up input
+  document.getElementById('tutor-input').value='';
+  
+  // Reset mode to Explain
+  setMode('explain','Explain clearly');
+  
+  // Reset learning level to Beginner
+  setLearningLevel('beginner');
+  
+  // Update chips visibility
+  updateChipsVisibility();
 }
 
 function iDontGetIt(){
