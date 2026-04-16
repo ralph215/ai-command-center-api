@@ -1608,6 +1608,8 @@ let activeTutorSessionId = null;
 const tutorLS = {
   save() {
     if (tutorIsLoading) return; // Don't save while loading
+    // Dedup sessions before saving
+    this.dedupSessions();
     const data = {
       sessions: tutorSessions,
       activeSessionId: activeTutorSessionId
@@ -1626,6 +1628,9 @@ const tutorLS = {
       const parsed = JSON.parse(data);
       tutorSessions = Array.isArray(parsed.sessions) ? parsed.sessions : [];
       activeTutorSessionId = parsed.activeSessionId || null;
+
+      // Dedup sessions after loading
+      this.dedupSessions();
 
       if (!activeTutorSessionId && tutorSessions.length > 0) {
         activeTutorSessionId = tutorSessions[0].id;
@@ -1649,6 +1654,41 @@ const tutorLS = {
       tutorIsLoading = false;
       return false;
     }
+  },
+  dedupSessions() {
+    if (!Array.isArray(tutorSessions)) return;
+    
+    // Group sessions by a dedup key: title + messageCount + topic + mode + level
+    const groups = {};
+    tutorSessions.forEach(session => {
+      const messageCount = Array.isArray(session.messages) ? session.messages.length : 0;
+      const key = `${session.title || ''}|${messageCount}|${session.topic || ''}|${session.selectedMode || ''}|${session.selectedLevel || ''}`;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(session);
+    });
+    
+    // For each group with multiples, keep only the newest (by updatedAt)
+    const deduped = [];
+    Object.values(groups).forEach(group => {
+      if (group.length === 1) {
+        deduped.push(group[0]);
+      } else {
+        // Sort by updatedAt descending, keep the first (newest)
+        group.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+        deduped.push(group[0]);
+        // If active session was one of the duplicates, update activeTutorSessionId
+        for (let i = 1; i < group.length; i++) {
+          if (group[i].id === activeTutorSessionId) {
+            activeTutorSessionId = group[0].id;
+            break;
+          }
+        }
+      }
+    });
+    
+    // Sort by updatedAt descending (newest first)
+    deduped.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    tutorSessions = deduped;
   },
   migrateFromSessionStorage() {
     const oldData = sessionStorage.getItem('tutor-session');
