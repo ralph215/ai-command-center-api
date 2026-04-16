@@ -93,6 +93,9 @@ body{background:var(--bg);color:var(--text);font-family:'Sora',sans-serif;displa
 .btn-sm{padding:4px 10px;font-size:11px;border-radius:5px;}
 .btn-green{background:rgba(52,211,153,.12);border-color:rgba(52,211,153,.3);color:var(--green);}
 .btn-amber{background:rgba(251,191,36,.12);border-color:rgba(251,191,36,.3);color:var(--amber);}
+.btn-amber:hover{background:rgba(251,191,36,.2);}
+.btn-accent{background:rgba(34,211,238,.12);border-color:rgba(34,211,238,.3);color:var(--accent);}
+.btn-accent:hover{background:rgba(34,211,238,.2);}
 .btn-ghost{background:transparent;border-color:transparent;color:var(--t2);}
 .btn-ghost:hover{color:var(--text);background:var(--s2);}
 
@@ -138,7 +141,46 @@ hr.div{border:none;border-top:1px solid var(--b1);margin:20px 0;}
 .msg.user{background:rgba(34,211,238,.1);border:1px solid rgba(34,211,238,.15);align-self:flex-end;}
 .msg.ai{background:var(--s3);border:1px solid var(--b1);align-self:flex-start;}
 .msg.ai strong{color:var(--accent);}
+
+/* TUTOR MODES */
 .tutor-modes{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+
+/* TUTOR LOADING ANIMATION */
+.tutor-loading{display:flex;align-items:center;gap:4px;color:var(--t2);font-size:12px;}
+.tutor-loading-dots{display:flex;gap:3px;}
+.tutor-loading-dot{width:4px;height:4px;border-radius:50%;background:var(--accent);animation:tutorPulse .8s infinite;}
+.tutor-loading-dot:nth-child(2){animation-delay:0.15s;}
+.tutor-loading-dot:nth-child(3){animation-delay:0.3s;}
+@keyframes tutorPulse{0%,60%,100%{opacity:0.3;}30%{opacity:1;}}
+
+/* ERROR MESSAGE - IMPROVED STYLING */
+.err-msg{
+  background:rgba(248,113,113,.08);
+  border:1px solid rgba(248,113,113,.25);
+  color:var(--red);
+  font-size:11px;
+  padding:12px 14px;
+  border-radius:7px;
+  margin-bottom:12px;
+  line-height:1.5;
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+}
+.err-msg::before{content:'⚠';font-size:14px;flex-shrink:0;margin-top:-1px;}
+
+/* LEARNING LEVEL SELECTOR */
+.level-selector{display:flex;gap:8px;margin-bottom:12px;}
+.level-btn{background:var(--s2);border:1px solid var(--b1);color:var(--t2);padding:6px 12px;border-radius:20px;font-size:10px;cursor:pointer;font-family:'Sora',sans-serif;transition:all .15s;font-weight:500;}
+.level-btn:hover{border-color:var(--b2);color:var(--text);}
+.level-btn.active{background:rgba(34,211,238,.12);border-color:rgba(34,211,238,.3);color:var(--accent);font-weight:600;}
+
+/* PROMPT CHIPS */
+.tutor-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;padding:10px;background:var(--s2);border:1px solid var(--b1);border-radius:7px;}
+.tutor-chips.empty{display:none;}
+.chip{background:var(--s3);border:1px solid var(--b1);color:var(--t2);padding:5px 10px;border-radius:20px;font-size:10px;cursor:pointer;transition:all .15s;font-family:'Sora',sans-serif;white-space:nowrap;}
+.chip:hover{background:var(--b2);border-color:var(--accent);color:var(--accent);}
+.chip.ready{border-color:rgba(34,211,238,.3);color:var(--accent);background:rgba(34,211,238,.05);}
 
 /* NEWS ARTICLE CARD */
 .article-card{background:var(--s1);border:1px solid var(--b1);border-radius:8px;padding:14px;margin-bottom:10px;transition:border .15s;}
@@ -575,16 +617,42 @@ hr.div{border:none;border-top:1px solid var(--b1);margin:20px 0;}
         <button class="mode-btn" onclick="setMode('project','Turn this into a beginner project I can build')" data-mode="project">🔨 Make a Project</button>
         <button class="mode-btn" onclick="setMode('money','How does this skill make money? Give specific examples')" data-mode="money">💰 Make Money?</button>
       </div>
-      <div style="margin-top:8px;margin-bottom:12px;">
+
+      <!-- Learning Level Selector -->
+      <div style="margin-top:12px;margin-bottom:10px;">
+        <div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Learning Level</div>
+        <div class="level-selector" id="level-selector">
+          <button class="level-btn active" onclick="setLearningLevel('beginner')" data-level="beginner">👶 Beginner</button>
+          <button class="level-btn" onclick="setLearningLevel('intermediate')" data-level="intermediate">📖 Intermediate</button>
+          <button class="level-btn" onclick="setLearningLevel('advanced')" data-level="advanced">🚀 Advanced</button>
+        </div>
+      </div>
+
+      <div style="margin-bottom:12px;">
         <div class="form-row"><label class="field-label">Topic</label><input class="input" id="tutor-topic" placeholder="e.g. Prompt engineering, APIs, Make automations..."></div>
       </div>
+
+      <!-- Suggested Prompt Chips -->
+      <div class="tutor-chips empty" id="tutor-chips">
+        <button class="chip" onclick="sendChipPrompt('explain')">Explain this simply</button>
+        <button class="chip" onclick="sendChipPrompt('example')">Give me a real example</button>
+        <button class="chip" onclick="sendChipPrompt('quiz')">Quiz me on this</button>
+        <button class="chip" onclick="sendChipPrompt('project')">Turn this into a 1-hour project</button>
+        <button class="chip" onclick="sendChipPrompt('money')">How can I make money with this?</button>
+      </div>
+
       <div id="tutor-chat"></div>
+
       <div style="display:flex;gap:8px;margin-top:8px;">
         <input class="input" id="tutor-input" placeholder="Ask a follow-up question..." onkeydown="if(event.key==='Enter')sendTutor()" style="flex:1;">
         <button class="btn btn-primary btn-sm" onclick="sendTutor()">Send</button>
         <button class="btn btn-sm btn-ghost" onclick="clearTutor()">Clear</button>
       </div>
-      <button class="btn btn-amber btn-sm" style="margin-top:8px;width:100%;" onclick="iDontGetIt()">🤔 I Still Don't Get It</button>
+
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button class="btn btn-amber btn-sm" style="flex:1;" onclick="iDontGetIt()">🤔 I Still Don't Get It</button>
+        <button class="btn btn-accent btn-sm" style="flex:1;" onclick="buildOneHourProject()">⏱️ 1-Hour Project</button>
+      </div>
     </div>
     <div>
       <div class="card" style="margin-bottom:12px;">
@@ -828,6 +896,7 @@ const FOCUS_MAP={
 };
 
 function nav(id){
+  console.log('nav called with id:', id);
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   const sec=document.getElementById('section-'+id);
@@ -840,7 +909,7 @@ function nav(id){
     projects:renderProjects,portfolio:renderPortfolio,skills:renderSkills,
     prompts:renderPrompts,money:renderMoney,offers:renderOffers,
     roadmap:renderRoadmap,notes:renderNotes,review:renderReview,
-    home:renderHome,queue:renderQueue};
+    home:renderHome,queue:renderQueue,tutor:renderTutor};
   if(renders[id]) renders[id]();
 }
 
@@ -1520,25 +1589,179 @@ function deleteOffer(idx){
 // =====================================================================
 let tutorHistory=[];
 let currentMode='explain';
+let currentLevel='beginner';
+let tutorIsLoading=false; // Flag to prevent recursive saves during load
+let tutorSessionRestored=false; // Flag to prevent double restoration
+
+// SessionStorage for tutor persistence
+const tutorSS={
+  save(){
+    if(tutorIsLoading) return; // Don't save while loading
+    const logEntries=[];
+    const logDiv=document.getElementById('tutor-log');
+    if(logDiv){
+      logDiv.querySelectorAll('div').forEach(entry=>{
+        const text=entry.textContent||'';
+        if(text) logEntries.push(text);
+      });
+    }
+    const data={
+      topic:document.getElementById('tutor-topic')?.value||'',
+      mode:currentMode,
+      level:currentLevel,
+      history:tutorHistory,
+      log:logEntries
+    };
+    sessionStorage.setItem('tutor-session',JSON.stringify(data));
+  },
+  load(){
+    const data=sessionStorage.getItem('tutor-session');
+    console.log('tutorSS.load called, data exists:', !!data);
+    if(!data) return false;
+    try{
+      tutorIsLoading=true;
+      const parsed=JSON.parse(data);
+      console.log('Parsed tutor session:', parsed);
+      
+      // Restore basic state
+      currentMode=parsed.mode||'explain';
+      currentLevel=parsed.level||'beginner';
+      tutorHistory=Array.isArray(parsed.history)?parsed.history:[];
+      
+      console.log('Restored state - mode:', currentMode, 'level:', currentLevel, 'history length:', tutorHistory.length);
+      
+      // Restore topic
+      const topicEl=document.getElementById('tutor-topic');
+      if(topicEl) topicEl.value=parsed.topic||'';
+      
+      // Update UI without triggering saves
+      document.querySelectorAll('.mode-btn').forEach(b=>{
+        b.classList.toggle('active',b.dataset.mode===currentMode);
+      });
+      document.querySelectorAll('.level-btn').forEach(b=>{
+        b.classList.toggle('active',b.dataset.level===currentLevel);
+      });
+      updateChipsVisibility();
+      
+      // Rebuild chat from history
+      // Delay final render to the UI layer to avoid duplicate chat items
+      
+      // Restore session log
+      if(Array.isArray(parsed.log) && parsed.log.length>0){
+        const log=document.getElementById('tutor-log');
+        if(log){
+          log.innerHTML=''; // Clear existing log
+          for(const entry of parsed.log){
+            const div=document.createElement('div');
+            div.style.cssText='padding:4px 0;border-bottom:1px solid var(--b1);margin-bottom:4px;';
+            div.textContent=entry;
+            log.appendChild(div);
+          }
+          log.scrollTop=log.scrollHeight;
+        }
+      }
+      
+      tutorSessionRestored=true;
+      tutorIsLoading=false;
+      return true;
+    }catch(e){
+      console.error('Error loading tutor session:', e);
+      tutorIsLoading=false;
+      return false;
+    }
+  },
+  clear(){
+    sessionStorage.removeItem('tutor-session');
+    tutorSessionRestored=false;
+  }
+};
 
 function setMode(mode,suffix){
   currentMode=mode;
   document.querySelectorAll('.mode-btn').forEach(b=>{
     b.classList.toggle('active',b.dataset.mode===mode);
   });
+  updateChipsVisibility();
+  if(!tutorIsLoading) tutorSS.save();
+}
+
+function setLearningLevel(level){
+  currentLevel=level;
+  document.querySelectorAll('.level-btn').forEach(b=>{
+    b.classList.toggle('active',b.dataset.level===level);
+  });
+  if(!tutorIsLoading) tutorSS.save();
 }
 
 function getTutorSystem(){
+  const levelSuffix={
+    beginner:' Adjust your explanation for someone with zero background. Use simple words, analogies, and real examples. Avoid jargon.',
+    intermediate:' Assume the user has basic understanding. You can use moderate technical terms. Balance depth with clarity.',
+    advanced:' Use technical language and assume good understanding. Be concise. Go deep into details and edge cases.'
+  };
   const modes={
-    explain:`You are a sharp, practical AI tutor for technology topics only. Default to AI, coding, APIs, automation, software, data, web development, and digital tools. If a term is ambiguous, assume the technology meaning unless the user clearly asks for medicine, law, or another domain. Ignore non-tech meanings unless explicitly requested. Explain clearly in plain English. No fluff, no padding. Lead with the key concept, then give context. Keep it under 200 words.`,
-    simpler:`You are an AI tutor for technology topics only. Default to AI, coding, APIs, automation, software, data, web development, and digital tools. If a term is ambiguous, assume the technology meaning unless the user clearly asks for another domain. Ignore non-tech meanings unless explicitly requested. Explain like the user has zero background. Use the simplest words possible. Use analogies. Keep it conversational and under 150 words.`,
-    example:`You are an AI tutor for technology topics only. Default to AI, coding, APIs, automation, software, data, web development, and digital tools. If a term is ambiguous, assume the technology meaning unless the user clearly asks for another domain. Ignore non-tech meanings unless explicitly requested. Give a real-world example that actually happens in a tech job, business, or project. Be specific. Make it practical.`,
-    quiz:`You are an AI tutor for technology topics only. Default to AI, coding, APIs, automation, software, data, web development, and digital tools. If a term is ambiguous, assume the technology meaning unless the user clearly asks for another domain. Ignore non-tech meanings unless explicitly requested. Create exactly 3 quiz questions on the tech topic. After each question, wait for the user's answer before giving the next one. Start with the first question.`,
-    'explain-back':`You are an AI tutor for technology topics only. Default to AI, coding, APIs, automation, software, data, web development, and digital tools. If a term is ambiguous, assume the technology meaning unless the user clearly asks for another domain. Ignore non-tech meanings unless explicitly requested. Ask the user to explain the tech topic back in their own words. Then give specific feedback: what they got right, what's missing, and what to fix.`,
-    project:`You are an AI tutor for technology topics only. Default to AI, coding, APIs, automation, software, data, web development, and digital tools. If a term is ambiguous, assume the technology meaning unless the user clearly asks for another domain. Ignore non-tech meanings unless explicitly requested. Suggest one beginner-friendly tech project they can build in 1-3 hours. Include: what to build, tools to use, step 1, step 2, step 3.`,
-    money:`You are an AI business advisor for technology topics only. Default to AI, coding, APIs, automation, software, data, web development, and digital tools. If a term is ambiguous, assume the technology meaning unless the user clearly asks for another domain. Ignore non-tech meanings unless explicitly requested. Explain how this tech skill or concept can make money. Give 3 specific ways to earn with it through freelance work, products, or jobs. Include realistic price ranges.`
+    explain:`You are a sharp, practical AI tutor for technology topics only. Default to AI, coding, APIs, automation, software, data, web development, and digital tools. If a term is ambiguous, assume the technology meaning unless the user clearly asks for medicine, law, or another domain. Ignore non-tech meanings unless explicitly requested. Explain clearly in plain English. No fluff, no padding. Lead with the key concept, then give context. Keep it under 200 words.${levelSuffix[currentLevel]||levelSuffix.beginner}`,
+    simpler:`You are an AI tutor for technology topics only. Default to AI, coding, APIs, automation, software, data, web development, and digital tools. If a term is ambiguous, assume the technology meaning unless the user clearly asks for another domain. Ignore non-tech meanings unless explicitly requested. Explain like the user has zero background. Use the simplest words possible. Use analogies. Keep it conversational and under 150 words.${levelSuffix[currentLevel]||levelSuffix.beginner}`,
+    example:`You are an AI tutor for technology topics only. Default to AI, coding, APIs, automation, software, data, web development, and digital tools. If a term is ambiguous, assume the technology meaning unless the user clearly asks for another domain. Ignore non-tech meanings unless explicitly requested. Give a real-world example that actually happens in a tech job, business, or project. Be specific. Make it practical.${levelSuffix[currentLevel]||levelSuffix.beginner}`,
+    quiz:`You are an AI tutor for technology topics only. Default to AI, coding, APIs, automation, software, data, web development, and digital tools. If a term is ambiguous, assume the technology meaning unless the user clearly asks for another domain. Ignore non-tech meanings unless explicitly requested. Create exactly 3 quiz questions on the tech topic. After each question, wait for the user's answer before giving the next one. Start with the first question.${levelSuffix[currentLevel]||levelSuffix.beginner}`,
+    'explain-back':`You are an AI tutor for technology topics only. Default to AI, coding, APIs, automation, software, data, web development, and digital tools. If a term is ambiguous, assume the technology meaning unless the user clearly asks for another domain. Ignore non-tech meanings unless explicitly requested. Ask the user to explain the tech topic back in their own words. Then give specific feedback: what they got right, what's missing, and what to fix.${levelSuffix[currentLevel]||levelSuffix.beginner}`,
+    project:`You are an AI tutor for technology topics only. Default to AI, coding, APIs, automation, software, data, web development, and digital tools. If a term is ambiguous, assume the technology meaning unless the user clearly asks for another domain. Ignore non-tech meanings unless explicitly requested. Suggest one beginner-friendly tech project they can build in 1-3 hours. Include: what to build, tools to use, step 1, step 2, step 3.${levelSuffix[currentLevel]||levelSuffix.beginner}`,
+    money:`You are an AI business advisor for technology topics only. Default to AI, coding, APIs, automation, software, data, web development, and digital tools. If a term is ambiguous, assume the technology meaning unless the user clearly asks for another domain. Ignore non-tech meanings unless explicitly requested. Explain how this tech skill or concept can make money. Give 3 specific ways to earn with it through freelance work, products, or jobs. Include realistic price ranges.${levelSuffix[currentLevel]||levelSuffix.beginner}`
   };
   return modes[currentMode]||modes.explain;
+}
+
+function updateChipsVisibility(){
+  const chips=document.getElementById('tutor-chips');
+  const topic=document.getElementById('tutor-topic').value.trim();
+  if(topic){
+    chips.classList.remove('empty');
+  }else{
+    chips.classList.add('empty');
+  }
+}
+
+function sendChipPrompt(chipMode){
+  const topic=document.getElementById('tutor-topic').value.trim();
+  if(!topic) return;
+  
+  const chipPrompts={
+    explain:'Explain this simply',
+    example:'Give me a real example',
+    quiz:'Quiz me on this',
+    project:'Turn this into a practical 1-hour beginner project. Include: goal, what I\'ll build, tools needed, step 1, step 2, step 3, success metrics.',
+    money:'How can I make money with this? Give 3 specific ways.'
+  };
+  
+  setMode(chipMode);
+  document.getElementById('tutor-input').value=chipPrompts[chipMode]||'';
+  sendTutor();
+}
+
+function buildOneHourProject(){
+  const topic=document.getElementById('tutor-topic').value.trim();
+  if(!topic){
+    alert('Please enter a topic first');
+    return;
+  }
+  setMode('project');
+  document.getElementById('tutor-input').value=`Turn ${topic} into a practical 1-hour beginner project for me. Include:\n- What I'll build and why\n- Exact tools needed\n- Step 1 (just setup)\n- Step 2 (core feature)\n- Step 3 (polish + test)\n- What success looks like\n- Next steps after this`;
+  sendTutor();
+}
+
+function renderTutorHistory(){
+  const chat=document.getElementById('tutor-chat');
+  if(!chat) return;
+  chat.innerHTML=''; // Clear existing DOM
+  if(!Array.isArray(tutorHistory) || tutorHistory.length===0) return;
+  
+  for(const msg of tutorHistory){
+    if(msg.role==='user' && msg.content){
+      appendChat('user',msg.content,true);
+    }else if(msg.role==='assistant' && msg.content){
+      appendChat('ai',msg.content,true);
+    }
+  }
 }
 
 async function sendTutor(){
@@ -1550,7 +1773,10 @@ async function sendTutor(){
   input.value='';
   appendChat('user',userMsg);
   tutorHistory.push({role:'user',content:userMsg});
-  appendChat('ai','<span style="color:var(--t3);">Thinking...</span>');
+  
+  // Better loading indicator (not saved to history)
+  appendChat('ai','<div class="tutor-loading"><span>Thinking</span><div class="tutor-loading-dots"><span class="tutor-loading-dot"></span><span class="tutor-loading-dot"></span><span class="tutor-loading-dot"></span></div></div>');
+  tutorSS.save();
 
   try{
     const r=await fetch('/api/tutor',{
@@ -1577,27 +1803,39 @@ async function sendTutor(){
       (!contentType.includes('application/json') ? raw : '') ||
       'No response';
 
-    removeLastChat();
+    removeLastChat(); // Remove loading indicator
 
     if(!r.ok){
-      appendChat('ai',`Error: ${text}`);
+      // Error message - show but don't save to history
+      appendChat('ai',`<div class="err-msg">API error: ${text}</div>`);
+      tutorSS.save();
       return;
     }
 
+    // Save only the real AI response to history
     appendChat('ai',text);
     tutorHistory.push({role:'assistant',content:text});
     logTutor(userMsg,text);
+    tutorSS.save();
   }catch(e){
-    removeLastChat();
-    appendChat('ai',`Error: ${e.message}`);
+    removeLastChat(); // Remove loading indicator
+    // Error message - show but don't save to history
+    appendChat('ai',`<div class="err-msg">Error: ${e.message}</div>`);
+    tutorSS.save();
   }
 }
 
-function appendChat(role,text){
+function appendChat(role,text,isRestoring){
   const chat=document.getElementById('tutor-chat');
   const div=document.createElement('div');
   div.className=`msg ${role}`;
-  div.innerHTML=role==='ai' ? formatTutorText(text) : escapeHtml(text).replace(/\n/g,'<br>');
+  if(role==='ai'){
+    // Format AI messages with markdown conversion
+    div.innerHTML=formatTutorText(text);
+  }else{
+    // Format user messages: escape HTML and convert newlines
+    div.innerHTML=escapeHtml(text).replace(/\n/g,'<br>');
+  }
   chat.appendChild(div);
   chat.scrollTop=chat.scrollHeight;
 }
@@ -1633,6 +1871,8 @@ function clearTutor(){
   tutorHistory=[];
   document.getElementById('tutor-chat').innerHTML='';
   document.getElementById('tutor-log').textContent='';
+  tutorSessionRestored=false; // Reset flag so new session can be created
+  tutorSS.clear();
 }
 
 function iDontGetIt(){
@@ -1648,6 +1888,37 @@ function logTutor(q,a){
   entry.innerHTML=`<span style="color:var(--accent);">${currentMode}:</span> ${q.substring(0,60)}${q.length>60?'...':''}`;
   log.appendChild(entry);
   log.scrollTop=log.scrollHeight;
+  // Save log to sessionStorage
+  tutorSS.save();
+}
+
+function renderTutor(){
+  console.log('renderTutor called, tutorSessionRestored:', tutorSessionRestored, 'tutorHistory length:', tutorHistory?.length || 0);
+  
+  // Restore tutor session only once
+  if(!tutorSessionRestored){
+    console.log('Loading tutor session...');
+    tutorSS.load();
+  }
+  
+  // If we have a restored session, make sure the DOM is rendered
+  if(tutorSessionRestored && Array.isArray(tutorHistory) && tutorHistory.length > 0){
+    console.log('Rendering tutor history...');
+    renderTutorHistory();
+  }
+  
+  // Update chips visibility based on topic
+  updateChipsVisibility();
+  
+  // Listen for topic input changes to show/hide chips
+  const topicInput=document.getElementById('tutor-topic');
+  if(topicInput && !topicInput._chipsListener){
+    topicInput.addEventListener('input',()=>{
+      updateChipsVisibility();
+      tutorSS.save();
+    });
+    topicInput._chipsListener=true;
+  }
 }
 
 function saveBFL(){
@@ -1864,6 +2135,10 @@ function init(){
   updateTodayDisplay();
   updateStreakDisplay();
   updateNotesBadge();
+  
+  // Restore tutor session on page load so level, mode, topic, history, and log persist.
+  tutorSS.load();
+  
   renderHome();
   fetchNews();
   // Reset week progress on Monday
