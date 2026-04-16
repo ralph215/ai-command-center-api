@@ -1627,12 +1627,18 @@ const tutorLS = {
       tutorSessions = Array.isArray(parsed.sessions) ? parsed.sessions : [];
       activeTutorSessionId = parsed.activeSessionId || null;
 
+      if (!activeTutorSessionId && tutorSessions.length > 0) {
+        activeTutorSessionId = tutorSessions[0].id;
+      }
+
       // Load active session data
-      if (activeTutorSessionId) {
-        const activeSession = tutorSessions.find(s => s.id === activeTutorSessionId);
-        if (activeSession) {
-          this.loadSessionData(activeSession);
-        }
+      let activeSession = tutorSessions.find(s => s.id === activeTutorSessionId);
+      if (!activeSession && tutorSessions.length > 0) {
+        activeSession = tutorSessions[0];
+        activeTutorSessionId = activeSession.id;
+      }
+      if (activeSession) {
+        this.loadSessionData(activeSession);
       }
 
       tutorSessionRestored = true;
@@ -1692,11 +1698,10 @@ const tutorLS = {
     });
     updateChipsVisibility();
 
-    // Restore session log
-    if (Array.isArray(session.sessionLog) && session.sessionLog.length > 0) {
-      const log = document.getElementById('tutor-log');
-      if (log) {
-        log.innerHTML = ''; // Clear existing log
+    const log = document.getElementById('tutor-log');
+    if (log) {
+      log.innerHTML = '';
+      if (Array.isArray(session.sessionLog) && session.sessionLog.length > 0) {
         for (const entry of session.sessionLog) {
           const div = document.createElement('div');
           div.style.cssText = 'padding:4px 0;border-bottom:1px solid var(--b1);margin-bottom:4px;';
@@ -1706,6 +1711,9 @@ const tutorLS = {
         log.scrollTop = log.scrollHeight;
       }
     }
+
+    // Render restored chat history for the active session
+    renderTutorHistory();
   },
   createNewSession(topic = '') {
     const newSession = {
@@ -1751,7 +1759,17 @@ const tutorLS = {
     if (activeTutorSessionId === sessionId) {
       activeTutorSessionId = tutorSessions.length > 0 ? tutorSessions[0].id : null;
     }
+    if (!activeTutorSessionId && tutorSessions.length === 0) {
+      const newSession = this.createNewSession('');
+      activeTutorSessionId = newSession.id;
+    }
     this.save();
+    if (activeTutorSessionId) {
+      const activeSession = tutorSessions.find(s => s.id === activeTutorSessionId);
+      if (activeSession) {
+        this.loadSessionData(activeSession);
+      }
+    }
   },
   switchToSession(sessionId) {
     const session = tutorSessions.find(s => s.id === sessionId);
@@ -1761,7 +1779,6 @@ const tutorLS = {
       // Switch to new session
       activeTutorSessionId = sessionId;
       this.loadSessionData(session);
-      renderTutorHistory();
       this.save();
     }
   }
@@ -1880,6 +1897,16 @@ function renderTutorHistoryPanel(){
   });
 }
 
+function renderTutorHistory(){
+  const chat = document.getElementById('tutor-chat');
+  if (!chat) return;
+  chat.innerHTML = '';
+  if (!Array.isArray(tutorHistory)) return;
+  tutorHistory.forEach(message => {
+    appendChat(message.role, message.content || '');
+  });
+}
+
 function switchToTutorSession(sessionId) {
   tutorLS.switchToSession(sessionId);
   renderTutorHistoryPanel();
@@ -1887,9 +1914,10 @@ function switchToTutorSession(sessionId) {
 
 function deleteTutorSession(sessionId) {
   if (confirm('Delete this tutor session? This cannot be undone.')) {
+    tutorLS.updateActiveSession();
     tutorLS.deleteSession(sessionId);
     renderTutorHistoryPanel();
-    // If we deleted the active session, the switchToSession will have set a new active one
+    renderTutorHistory();
   }
 }
 
@@ -2022,6 +2050,9 @@ function newSessionTutor(){
   
   // Create a fresh blank tutor session
   const newSession = tutorLS.createNewSession(topic);
+
+  // Clear previous session history in memory
+  tutorHistory = [];
   
   // Reset follow-up input
   document.getElementById('tutor-input').value = '';
@@ -2322,6 +2353,9 @@ function init(){
   
   // Restore tutor sessions on page load
   tutorLS.load();
+  if (tutorSessions.length === 0) {
+    tutorLS.createNewSession('');
+  }
   
   renderHome();
   fetchNews();
