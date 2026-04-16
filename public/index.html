@@ -2045,16 +2045,16 @@ function newSessionTutor(){
   // Save current session first
   tutorLS.updateActiveSession();
   
-  // Get current topic
-  const topic = document.getElementById('tutor-topic').value.trim();
-  
   // Create a fresh blank tutor session
-  const newSession = tutorLS.createNewSession(topic);
+  const newSession = tutorLS.createNewSession('');
 
   // Clear previous session history in memory
   tutorHistory = [];
   
-  // Reset follow-up input
+  // Blank topic
+  document.getElementById('tutor-topic').value = '';
+  
+  // Blank follow-up input
   document.getElementById('tutor-input').value = '';
   
   // Reset mode to Explain
@@ -2070,8 +2070,8 @@ function newSessionTutor(){
   // Update chips visibility
   updateChipsVisibility();
   
-  // Render history panel
-  renderTutorHistoryPanel();
+  // Then render tutor
+  renderTutor();
 }
 
 function iDontGetIt(){
