@@ -4,7 +4,11 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  if (req.method !== 'POST') {
+    return res.status(405).json({
+      content: [{ text: 'Method not allowed. Use POST for /api/tutor.' }]
+    });
+  }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -14,7 +18,12 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { messages, system } = req.body;
+    const body = typeof req.body === 'object' && req.body !== null ? req.body : {};
+    const messages = Array.isArray(body.messages) ? body.messages : [];
+    const system =
+      typeof body.system === 'string' && body.system.trim()
+        ? body.system
+        : 'You are a helpful AI tutor.';
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -24,18 +33,27 @@ export default async function handler(req, res) {
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6,
+        model: 'claude-sonnet-4-6',
         max_tokens: 1024,
-        system: system || 'You are a helpful AI tutor.',
-        messages: messages || []
+        system,
+        messages
       })
     });
 
-    const data = await response.json();
+    const raw = await response.text();
+    let data;
+
+    try {
+      data = raw ? JSON.parse(raw) : {};
+    } catch {
+      return res.status(response.status || 502).json({
+        content: [{ text: `Anthropic returned a non-JSON response: ${raw || 'empty response'}` }]
+      });
+    }
 
     if (!response.ok) {
       return res.status(response.status).json({
-        content: [{ text: `API error: ${data.error?.message || JSON.stringify(data)}` }]
+        content: [{ text: `Anthropic API error: ${data?.error?.message || raw || 'Unknown error'}` }]
       });
     }
 

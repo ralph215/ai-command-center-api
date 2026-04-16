@@ -1546,25 +1546,50 @@ async function sendTutor(){
   const input=document.getElementById('tutor-input');
   const userMsg=input.value.trim()||(topic?`Teach me about: ${topic}`:'');
   if(!userMsg) return;
+
   input.value='';
   appendChat('user',userMsg);
   tutorHistory.push({role:'user',content:userMsg});
   appendChat('ai','<span style="color:var(--t3);">Thinking...</span>');
+
   try{
     const r=await fetch('/api/tutor',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({messages:tutorHistory,system:getTutorSystem()})
     });
-    const data=await r.json();
-    const text=data.content?.[0]?.text||data.error||'No response';
+
+    const contentType=r.headers.get('content-type')||'';
+    const raw=await r.text();
+
+    let data=null;
+    if(contentType.includes('application/json')){
+      try{
+        data=JSON.parse(raw);
+      }catch(parseErr){
+        throw new Error(`Tutor returned invalid JSON: ${parseErr.message}`);
+      }
+    }
+
+    const text=
+      data?.content?.[0]?.text ||
+      data?.error ||
+      (!contentType.includes('application/json') ? raw : '') ||
+      'No response';
+
     removeLastChat();
+
+    if(!r.ok){
+      appendChat('ai',`Error: ${text}`);
+      return;
+    }
+
     appendChat('ai',text);
     tutorHistory.push({role:'assistant',content:text});
     logTutor(userMsg,text);
   }catch(e){
     removeLastChat();
-    appendChat('ai',`Error: ${e.message}. Make sure /api/tutor is deployed with ANTHROPIC_API_KEY set in Vercel.`);
+    appendChat('ai',`Error: ${e.message}`);
   }
 }
 
