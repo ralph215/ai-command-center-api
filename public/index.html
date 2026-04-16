@@ -1716,12 +1716,28 @@ const tutorLS = {
     renderTutorHistory();
   },
   createNewSession(topic = '') {
+    // Check if current active session is empty (no messages, no log, default title)
+    if (activeTutorSessionId) {
+      const currentSession = tutorSessions.find(s => s.id === activeTutorSessionId);
+      if (currentSession && 
+          (!Array.isArray(currentSession.messages) || currentSession.messages.length === 0) &&
+          (!Array.isArray(currentSession.sessionLog) || currentSession.sessionLog.length === 0) &&
+          (!currentSession.title || currentSession.title === 'Untitled Tutor Session')) {
+        // Reuse the empty session instead of creating a new one
+        currentSession.updatedAt = Date.now();
+        currentSession.topic = topic || '';
+        currentSession.title = topic ? topic.substring(0, 40) + (topic.length > 40 ? '...' : '') : 'Untitled Tutor Session';
+        this.save();
+        return currentSession;
+      }
+    }
+    
     const newSession = {
       id: 'session-' + Date.now(),
-      title: 'Untitled Tutor Session',
+      title: topic ? topic.substring(0, 40) + (topic.length > 40 ? '...' : '') : 'Untitled Tutor Session',
       createdAt: Date.now(),
       updatedAt: Date.now(),
-      topic: '',
+      topic: topic || '',
       selectedMode: 'explain',
       selectedLevel: 'beginner',
       messages: [],
@@ -1861,17 +1877,27 @@ function buildOneHourProject(){
 }
 
 function renderTutorHistoryPanel(){
+  // Ensure current session data is saved before rendering
+  tutorLS.updateActiveSession();
+  
   const historyPanel = document.getElementById('tutor-history-panel');
   if (!historyPanel) return;
   
   historyPanel.innerHTML = '';
   
-  if (tutorSessions.length === 0) {
+  // Filter out sessions with no content (empty messages and empty sessionLog)
+  const validSessions = tutorSessions.filter(session => {
+    const hasMessages = Array.isArray(session.messages) && session.messages.length > 0;
+    const hasLog = Array.isArray(session.sessionLog) && session.sessionLog.length > 0;
+    return hasMessages || hasLog;
+  });
+  
+  if (validSessions.length === 0) {
     historyPanel.innerHTML = '<div style="font-size:11px;color:var(--t3);text-align:center;padding:20px;">No saved sessions yet</div>';
     return;
   }
   
-  tutorSessions.forEach(session => {
+  validSessions.forEach(session => {
     const sessionDiv = document.createElement('div');
     sessionDiv.className = 'tutor-session-item';
     sessionDiv.style.cssText = `
@@ -1883,7 +1909,17 @@ function renderTutorHistoryPanel(){
     `;
     sessionDiv.onclick = () => switchToTutorSession(session.id);
     
-    const title = session.title || 'Untitled Tutor Session';
+    // Better title logic: use topic if available, otherwise first message preview, otherwise fallback
+    let title = session.title || 'Untitled Tutor Session';
+    if (!session.topic && title === 'Untitled Tutor Session' && Array.isArray(session.messages) && session.messages.length > 0) {
+      const firstUserMsg = session.messages.find(m => m.role === 'user');
+      if (firstUserMsg && firstUserMsg.content) {
+        title = firstUserMsg.content.substring(0, 40) + (firstUserMsg.content.length > 40 ? '...' : '');
+      }
+    } else if (session.topic) {
+      title = session.topic.substring(0, 40) + (session.topic.length > 40 ? '...' : '');
+    }
+    
     const date = new Date(session.updatedAt).toLocaleDateString();
     const messageCount = (session.messages || []).length;
     
