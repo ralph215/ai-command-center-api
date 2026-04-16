@@ -1882,7 +1882,7 @@ function renderTutorHistoryPanel(){
     
     const title = session.title || 'Untitled Tutor Session';
     const date = new Date(session.updatedAt).toLocaleDateString();
-    const messageCount = session.messages ? session.messages.length : 0;
+    const messageCount = (session.messages || []).length;
     
     sessionDiv.innerHTML = `
       <div style="font-size:12px;font-weight:500;color:var(--text);margin-bottom:4px;">${title}</div>
@@ -1995,7 +1995,7 @@ function appendChat(role,text,isRestoring){
   const chat=document.getElementById('tutor-chat');
   const div=document.createElement('div');
   div.className=`msg ${role}`;
-  if(role==='ai'){
+  if(role==='ai' || role==='assistant'){
     // Format AI messages with markdown conversion
     div.innerHTML=formatTutorText(text);
   }else{
@@ -2105,11 +2105,8 @@ function renderTutor(){
     }
   }
   
-  // If we have a restored session, make sure the DOM is rendered
-  if(tutorSessionRestored && Array.isArray(tutorHistory) && tutorHistory.length > 0){
-    console.log('Rendering tutor history...');
-    renderTutorHistory();
-  }
+  // Always rebuild the chat from the active session
+  renderTutorHistory();
   
   // Render history panel
   renderTutorHistoryPanel();
