@@ -1718,15 +1718,16 @@ const tutorLS = {
   createNewSession(topic = '') {
     const newSession = {
       id: 'session-' + Date.now(),
-      title: topic || 'Untitled Tutor Session',
+      title: 'Untitled Tutor Session',
       createdAt: Date.now(),
       updatedAt: Date.now(),
-      topic: topic,
+      topic: '',
       selectedMode: 'explain',
       selectedLevel: 'beginner',
       messages: [],
       sessionLog: []
     };
+    tutorHistory = [];
     tutorSessions.unshift(newSession); // Add to beginning
     activeTutorSessionId = newSession.id;
     this.save();
@@ -2048,29 +2049,29 @@ function newSessionTutor(){
   // Create a fresh blank tutor session
   const newSession = tutorLS.createNewSession('');
 
-  // Clear previous session history in memory
+  // Reset active state immediately
+  currentMode = 'explain';
+  currentLevel = 'beginner';
   tutorHistory = [];
-  
-  // Blank topic
-  document.getElementById('tutor-topic').value = '';
-  
-  // Blank follow-up input
-  document.getElementById('tutor-input').value = '';
-  
-  // Reset mode to Explain
-  setMode('explain','Explain clearly');
-  
-  // Reset learning level to Beginner
-  setLearningLevel('beginner');
-  
-  // Clear chat and log for new session
-  document.getElementById('tutor-chat').innerHTML = '';
-  document.getElementById('tutor-log').textContent = '';
-  
-  // Update chips visibility
+
+  const topicEl = document.getElementById('tutor-topic');
+  const inputEl = document.getElementById('tutor-input');
+  const chatEl = document.getElementById('tutor-chat');
+  const logEl = document.getElementById('tutor-log');
+
+  if(topicEl) topicEl.value = '';
+  if(inputEl) inputEl.value = '';
+  if(chatEl) chatEl.innerHTML = '';
+  if(logEl) logEl.innerHTML = '';
+
+  document.querySelectorAll('.mode-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.mode === 'explain');
+  });
+  document.querySelectorAll('.level-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.level === 'beginner');
+  });
+
   updateChipsVisibility();
-  
-  // Then render tutor
   renderTutor();
 }
 
@@ -2093,6 +2094,16 @@ function logTutor(q,a){
 
 function renderTutor(){
   console.log('renderTutor called, tutorSessionRestored:', tutorSessionRestored, 'tutorHistory length:', tutorHistory?.length || 0);
+
+  const topicEl = document.getElementById('tutor-topic');
+  const inputEl = document.getElementById('tutor-input');
+  const chatEl = document.getElementById('tutor-chat');
+  const logEl = document.getElementById('tutor-log');
+
+  if(topicEl) topicEl.value = '';
+  if(inputEl) inputEl.value = '';
+  if(chatEl) chatEl.innerHTML = '';
+  if(logEl) logEl.innerHTML = '';
   
   // Restore tutor sessions only once
   if(!tutorSessionRestored){
@@ -2109,11 +2120,9 @@ function renderTutor(){
   const activeSession = tutorSessions.find(s => s.id === activeTutorSessionId);
   if(activeSession){
     // Set topic
-    const topicEl = document.getElementById('tutor-topic');
     if(topicEl) topicEl.value = activeSession.topic || '';
     
     // Set input to ''
-    const inputEl = document.getElementById('tutor-input');
     if(inputEl) inputEl.value = '';
     
     // Set mode/level
@@ -2130,17 +2139,16 @@ function renderTutor(){
     tutorHistory = Array.isArray(activeSession.messages) ? activeSession.messages : [];
     
     // Clear and rebuild log
-    const log = document.getElementById('tutor-log');
-    if(log){
-      log.innerHTML = '';
+    if(logEl){
+      logEl.innerHTML = '';
       if(Array.isArray(activeSession.sessionLog) && activeSession.sessionLog.length > 0){
         for (const entry of activeSession.sessionLog) {
           const div = document.createElement('div');
           div.style.cssText = 'padding:4px 0;border-bottom:1px solid var(--b1);margin-bottom:4px;';
           div.textContent = entry;
-          log.appendChild(div);
+          logEl.appendChild(div);
         }
-        log.scrollTop = log.scrollHeight;
+        logEl.scrollTop = logEl.scrollHeight;
       }
     }
     
