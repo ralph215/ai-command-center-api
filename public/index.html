@@ -1727,6 +1727,8 @@ const tutorLS = {
       messages: [],
       sessionLog: []
     };
+    currentMode = 'explain';
+    currentLevel = 'beginner';
     tutorHistory = [];
     tutorSessions.unshift(newSession); // Add to beginning
     activeTutorSessionId = newSession.id;
@@ -2043,13 +2045,8 @@ function clearTutor(){
 }
 
 function newSessionTutor(){
-  // Save current session first
-  tutorLS.updateActiveSession();
-  
-  // Create a fresh blank tutor session
-  const newSession = tutorLS.createNewSession('');
+  tutorLS.createNewSession('');
 
-  // Reset active state immediately
   currentMode = 'explain';
   currentLevel = 'beginner';
   tutorHistory = [];
@@ -2059,14 +2056,15 @@ function newSessionTutor(){
   const chatEl = document.getElementById('tutor-chat');
   const logEl = document.getElementById('tutor-log');
 
-  if(topicEl) topicEl.value = '';
-  if(inputEl) inputEl.value = '';
-  if(chatEl) chatEl.innerHTML = '';
-  if(logEl) logEl.innerHTML = '';
+  if (topicEl) topicEl.value = '';
+  if (inputEl) inputEl.value = '';
+  if (chatEl) chatEl.innerHTML = '';
+  if (logEl) logEl.innerHTML = '';
 
   document.querySelectorAll('.mode-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.mode === 'explain');
   });
+
   document.querySelectorAll('.level-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.level === 'beginner');
   });
@@ -2105,22 +2103,19 @@ function renderTutor(){
   if(chatEl) chatEl.innerHTML = '';
   if(logEl) logEl.innerHTML = '';
   
-  // Restore tutor sessions only once
-  if(!tutorSessionRestored){
-    console.log('Loading tutor sessions...');
-    tutorLS.load();
-    
-    // If no sessions exist, create a default one
-    if (tutorSessions.length === 0) {
-      tutorLS.createNewSession('');
-    }
+  // Restore tutor sessions
+  tutorLS.load();
+  
+  // If no sessions exist, create a default one
+  if (tutorSessions.length === 0) {
+    tutorLS.createNewSession('');
   }
   
   // Always rebuild the UI from the active session
   const activeSession = tutorSessions.find(s => s.id === activeTutorSessionId);
   if(activeSession){
     // Set topic
-    if(topicEl) topicEl.value = activeSession.topic || '';
+    if(topicEl) topicEl.value = activeSession ? (activeSession.topic || '') : '';
     
     // Set input to ''
     if(inputEl) inputEl.value = '';
