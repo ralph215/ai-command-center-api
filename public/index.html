@@ -409,6 +409,17 @@ hr.div{border:none;border-top:1px solid var(--b1);margin:20px 0;}
       <button class="btn btn-sm" style="margin-top:10px;" onclick="nav('skills')">View Skills →</button>
     </div>
   </div>
+
+  <!-- Data Backup & Restore -->
+  <div class="card" style="margin-top:16px;">
+    <div class="section-head"><div class="dot" style="background:var(--accent)"></div>Data Backup & Restore</div>
+    <div style="display:flex;gap:8px;margin-bottom:8px;">
+      <button class="btn btn-sm btn-accent" onclick="exportAppData()">💾 Export Data</button>
+      <button class="btn btn-sm btn-accent" onclick="importAppDataPrompt()">📂 Import Data</button>
+    </div>
+    <div style="font-size:10px;color:var(--t3);">Backup all your notes, projects, tutor sessions, and app data. Safe restore anytime.</div>
+    <input type="file" id="import-file-input" style="display:none;" accept=".json" onchange="importAppData(event)">
+  </div>
 </div>
 
 <!-- ======= DAILY QUEUE ======= -->
@@ -760,6 +771,32 @@ hr.div{border:none;border-top:1px solid var(--b1);margin:20px 0;}
 </div><!-- end #layout -->
 
 <script>
+/*
+MASTER UPGRADE ROADMAP
+Phase 1 — Stabilize current app
+- Keep AI Tutor session reset, history, reopen, and dedup logic stable
+- Add autosave status feedback where edits happen
+- Add safe import/export backup for localStorage data
+
+Phase 2 — Reduce brittleness
+- Move localStorage access behind a single storage/state layer
+- Reduce duplicate tutor/session render paths
+- Normalize saved tutor session shape in one place
+
+Phase 3 — Make Tutor drive the OS
+- Save tutor output directly into Notes
+- Turn tutor output into Projects, Offers, Queue items, and Roadmap actions
+- Add better session titles, rename, archive, delete confirmation
+
+Phase 4 — Upgrade UX
+- Add command palette (Cmd/Ctrl+K)
+- Add universal search across notes, projects, prompts, tutor sessions, offers
+- Improve empty states, priorities, and next-best-move guidance
+
+Phase 5 — Refactor structure
+- Split this monolithic file into focused modules/files
+- Keep the current UI and behaviors while moving logic out cleanly
+*/
 // =====================================================================
 // DATA STORE — localStorage-backed
 // =====================================================================
@@ -1053,6 +1090,7 @@ function toggleQueue(idx){
   queue.items[idx].done=!queue.items[idx].done;
   LS.set('queue',queue);
   renderQueue();
+  showAutosaveMsg(queue.items[idx].done?'Task marked done ✓':'Task marked pending ✓',1200);
 }
 
 function saveQueueEdits(){
@@ -1063,6 +1101,7 @@ function saveQueueEdits(){
   });
   LS.set('queue',queue);
   renderQueue();
+  showAutosaveMsg('Queue saved ✓',2000);
 }
 
 function resetQueue(){
@@ -1615,6 +1654,7 @@ const tutorLS = {
       activeSessionId: activeTutorSessionId
     };
     localStorage.setItem('tutor-sessions', JSON.stringify(data));
+    showAutosaveMsg('Tutor session saved ✓',1500);
   },
   load() {
     const data = localStorage.getItem('tutor-sessions');
@@ -2392,6 +2432,7 @@ function saveNote(){
   document.getElementById('new-note-form').style.display='none';
   updateNotesBadge();
   renderNotes();
+  showAutosaveMsg('Note saved ✓',2000);
 }
 
 function deleteNote(idx){
@@ -2456,12 +2497,181 @@ function saveReview(){
     next:document.getElementById('rev-next')?.value||''
   };
   LS.set('reviews',reviews);
-  const msg=document.getElementById('review-save-msg');
-  msg.textContent='Saved ✓';
-  setTimeout(()=>msg.textContent='',2000);
+  showAutosaveMsg('Review saved ✓',2000);
 }
 
 function loadReview(){renderReview();}
+
+// =====================================================================
+// DATA EXPORT / IMPORT (PHASE 1)
+// =====================================================================
+function exportAppData(){
+  try{
+    // Gather all localStorage data
+    const backup={
+      version:3,
+      exportedAt:new Date().toISOString(),
+      data:{}
+    };
+    
+    // List all keys we care about
+    const keys=[
+      'learning','certs','projects','skills','prompts','money','roadmap','queue',
+      'notes','reviews','progress','tutor-sessions',
+      'offers' // if it exists
+    ];
+    
+    for(const key of keys){
+      const v=localStorage.getItem(key);
+      if(v) backup.data[key]=v;
+    }
+    
+    // Add stats
+    backup.stats={
+      notesCount:LS.get('notes',[]).length,
+      projectsCount:LS.get('projects',[]).length,
+      tutorSessionsCount:tutorSessions.length,
+      skillsCount:LS.get('skills',[]).length
+    };
+    
+    // Create JSON file and download
+    const json=JSON.stringify(backup,null,2);
+    const blob=new Blob([json],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    a.download=`ai-command-center-backup-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    showAutosaveMsg('Data exported ✓',3000);
+  }catch(e){
+    alert(`Export failed: ${e.message}`);
+  }
+}
+
+function importAppDataPrompt(){
+  document.getElementById('import-file-input').click();
+}
+
+function importAppData(event){
+  const file=event.target.files?.[0];
+  if(!file) return;
+  
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const json=e.target?.result;
+      const backup=JSON.parse(json);
+      
+      // Validate backup structure
+      if(!backup.data || typeof backup.data!=='object'){
+        alert('Invalid backup file format');
+        return;
+      }
+      
+      const confirm_msg=`Import data from ${new Date(backup.exportedAt).toLocaleDateString()}?\n` +
+        `This will overwrite:\n- ${backup.stats?.notesCount||0} notes\n- ${backup.stats?.projectsCount||0} projects\n- ${backup.stats?.tutorSessionsCount||0} tutor sessions\n\nContinue?`;
+      
+      if(!confirm(confirm_msg)) return;
+      
+      // Restore all keys
+      for(const [key,value] of Object.entries(backup.data)){
+        try{
+          localStorage.setItem(key,value);
+        }catch(setErr){
+          console.error(`Failed to restore ${key}:`,setErr);
+        }
+      }
+      
+      // Reload app state
+      tutorLS.load();
+      updateNotesBadge();
+      updateStreakDisplay();
+      
+      // Re-render current section
+      const activeNav=document.querySelector('.nav-item.active');
+      if(activeNav){
+        const section=activeNav.dataset.section;
+        nav(section);
+      }
+      
+      showAutosaveMsg('Data imported ✓',3000);
+      alert('Data restored successfully! Refresh the page to see all changes.');
+    }catch(e){
+      alert(`Import failed: ${e.message}`);
+    }
+  };
+  reader.readAsText(file);
+  
+  // Reset file input so same file can be imported again
+  event.target.value='';
+}
+
+// =====================================================================
+// AUTOSAVE FEEDBACK
+// =====================================================================
+let autosaveTimeouts={};
+
+function showAutosaveMsg(msg='Saving...',duration=1500){
+  // Show feedback near where user is
+  const existing=document.querySelector('.autosave-feedback');
+  if(existing) existing.remove();
+  
+  const feedback=document.createElement('div');
+  feedback.className='autosave-feedback';
+  feedback.style.cssText=`
+    position:fixed;
+    bottom:20px;
+    right:20px;
+    background:var(--s1);
+    border:1px solid var(--b1);
+    border-radius:8px;
+    padding:12px 16px;
+    font-size:11px;
+    color:var(--green);
+    font-family:'JetBrains Mono',monospace;
+    z-index:1000;
+    box-shadow:0 4px 12px rgba(0,0,0,0.3);
+  `;
+  feedback.textContent=msg;
+  document.body.appendChild(feedback);
+  
+  if(duration>0){
+    setTimeout(()=>feedback.remove(),duration);
+  }
+}
+
+function showSavingIndicator(element){
+  if(!element) return;
+  const existing=element.querySelector('.saving-dot');
+  if(existing) return; // Already showing
+  
+  const dot=document.createElement('span');
+  dot.className='saving-dot';
+  dot.style.cssText=`
+    display:inline-block;
+    width:6px;
+    height:6px;
+    background:var(--amber);
+    border-radius:50%;
+    margin-left:8px;
+    animation:pulse 1s infinite;
+  `;
+  element.appendChild(dot);
+}
+
+// Add CSS animation for saving indicator
+const style=document.createElement('style');
+style.textContent=`
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+`;
+document.head.appendChild(style);
 
 // =====================================================================
 // UTILITIES
