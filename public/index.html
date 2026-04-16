@@ -1658,29 +1658,47 @@ const tutorLS = {
   dedupSessions() {
     if (!Array.isArray(tutorSessions)) return;
     
-    // Group sessions by a dedup key: title + messageCount + topic + mode + level
+    // Group sessions by normalized title/topic
     const groups = {};
     tutorSessions.forEach(session => {
-      const messageCount = Array.isArray(session.messages) ? session.messages.length : 0;
-      const key = `${session.title || ''}|${messageCount}|${session.topic || ''}|${session.selectedMode || ''}|${session.selectedLevel || ''}`;
+      const title = (session.title || session.topic || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+      const key = title || 'untitled';
       if (!groups[key]) groups[key] = [];
       groups[key].push(session);
     });
     
-    // For each group with multiples, keep only the newest (by updatedAt)
+    // For each group, keep the best session
     const deduped = [];
     Object.values(groups).forEach(group => {
       if (group.length === 1) {
         deduped.push(group[0]);
       } else {
-        // Sort by updatedAt descending, keep the first (newest)
-        group.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
-        deduped.push(group[0]);
-        // If active session was one of the duplicates, update activeTutorSessionId
-        for (let i = 1; i < group.length; i++) {
-          if (group[i].id === activeTutorSessionId) {
-            activeTutorSessionId = group[0].id;
-            break;
+        // Sort by quality: has messages > 0, then message count, then sessionLog length, then updatedAt
+        group.sort((a, b) => {
+          const aHasMessages = (Array.isArray(a.messages) && a.messages.length > 0) ? 1 : 0;
+          const bHasMessages = (Array.isArray(b.messages) && b.messages.length > 0) ? 1 : 0;
+          if (aHasMessages !== bHasMessages) return bHasMessages - aHasMessages;
+          
+          const aMsgCount = Array.isArray(a.messages) ? a.messages.length : 0;
+          const bMsgCount = Array.isArray(b.messages) ? b.messages.length : 0;
+          if (aMsgCount !== bMsgCount) return bMsgCount - aMsgCount;
+          
+          const aLogCount = Array.isArray(a.sessionLog) ? a.sessionLog.length : 0;
+          const bLogCount = Array.isArray(b.sessionLog) ? b.sessionLog.length : 0;
+          if (aLogCount !== bLogCount) return bLogCount - aLogCount;
+          
+          return (b.updatedAt || 0) - (a.updatedAt || 0);
+        });
+        
+        // Keep the best one
+        const best = group[0];
+        deduped.push(best);
+        
+        // If active session was not the best, update activeTutorSessionId
+        if (activeTutorSessionId && activeTutorSessionId !== best.id) {
+          const wasActive = group.find(s => s.id === activeTutorSessionId);
+          if (wasActive) {
+            activeTutorSessionId = best.id;
           }
         }
       }
@@ -1925,11 +1943,13 @@ function renderTutorHistoryPanel(){
   
   historyPanel.innerHTML = '';
   
-  // Filter out sessions with no content (empty messages and empty sessionLog)
+  // Filter out sessions with no content (empty messages and empty sessionLog), except active session
   const validSessions = tutorSessions.filter(session => {
     const hasMessages = Array.isArray(session.messages) && session.messages.length > 0;
     const hasLog = Array.isArray(session.sessionLog) && session.sessionLog.length > 0;
-    return hasMessages || hasLog;
+    const hasContent = hasMessages || hasLog;
+    // Include active session even if empty
+    return hasContent || session.id === activeTutorSessionId;
   });
   
   if (validSessions.length === 0) {
