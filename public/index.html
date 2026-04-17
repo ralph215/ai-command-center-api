@@ -806,6 +806,323 @@ const LS = {
 };
 
 // =====================================================================
+// CENTRALIZED APP STATE — PHASE 2
+// =====================================================================
+const AppState = {
+  // Core data keys
+  keys: {
+    learning: 'learning',
+    certs: 'certs',
+    projects: 'projects',
+    skills: 'skills',
+    prompts: 'prompts',
+    money: 'money',
+    roadmap: 'roadmap',
+    queue: 'queue',
+    notes: 'notes',
+    reviews: 'reviews',
+    progress: 'progress',
+    offers: 'offers',
+    tutorSessions: 'tutor-sessions'
+  },
+
+  // Get any data with fallback to seed
+  get(key, fallback = null) {
+    return LS.get(this.keys[key] || key, fallback);
+  },
+
+  // Set any data
+  set(key, value) {
+    LS.set(this.keys[key] || key, value);
+  },
+
+  // Initialize with seed data if empty
+  init() {
+    Object.keys(SEED).forEach(k => {
+      if (!localStorage.getItem(this.keys[k] || k)) {
+        this.set(k, SEED[k]);
+      }
+    });
+  },
+
+  // Tutor session management (consolidated from tutorLS)
+  tutor: {
+    sessions: [],
+    activeSessionId: null,
+    history: [],
+    currentMode: 'explain',
+    currentLevel: 'beginner',
+    isLoading: false,
+    sessionRestored: false,
+
+    // Normalized session shape
+    createSessionShape(id, title, topic = '', mode = 'explain', level = 'beginner') {
+      return {
+        id,
+        title,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        topic,
+        selectedMode: mode,
+        selectedLevel: level,
+        messages: [],
+        sessionLog: []
+      };
+    },
+
+    // Save all tutor data
+    save() {
+      if (this.isLoading) return;
+      this.dedupSessions();
+      const data = {
+        sessions: this.sessions,
+        activeSessionId: this.activeSessionId
+      };
+      localStorage.setItem(AppState.keys.tutorSessions, JSON.stringify(data));
+      showAutosaveMsg('Tutor session saved ✓', 1500);
+    },
+
+    // Load all tutor data
+    load() {
+      const data = localStorage.getItem(AppState.keys.tutorSessions);
+      if (!data) {
+        this.migrateFromSessionStorage();
+        return false;
+      }
+      try {
+        this.isLoading = true;
+        const parsed = JSON.parse(data);
+        this.sessions = Array.isArray(parsed.sessions) ? parsed.sessions : [];
+        this.activeSessionId = parsed.activeSessionId || null;
+
+        this.dedupSessions();
+
+        if (!this.activeSessionId && this.sessions.length > 0) {
+          this.activeSessionId = this.sessions[0].id;
+        }
+
+        let activeSession = this.sessions.find(s => s.id === this.activeSessionId);
+        if (!activeSession && this.sessions.length > 0) {
+          activeSession = this.sessions[0];
+          this.activeSessionId = activeSession.id;
+        }
+        if (activeSession) {
+          this.loadSessionData(activeSession);
+        }
+
+        this.sessionRestored = true;
+        this.isLoading = false;
+        return true;
+      } catch (e) {
+        console.error('Error loading tutor sessions:', e);
+        this.isLoading = false;
+        return false;
+      }
+    },
+
+    // Load session data into current state
+    loadSessionData(session) {
+      this.currentMode = session.selectedMode || 'explain';
+      this.currentLevel = session.selectedLevel || 'beginner';
+      this.history = Array.isArray(session.messages) ? session.messages : [];
+
+      const topicEl = document.getElementById('tutor-topic');
+      if (topicEl) topicEl.value = session.topic || '';
+
+      // Update UI
+      document.querySelectorAll('.mode-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.mode === this.currentMode);
+      });
+      document.querySelectorAll('.level-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.level === this.currentLevel);
+      });
+      updateChipsVisibility();
+
+      const log = document.getElementById('tutor-log');
+      if (log) {
+        log.innerHTML = '';
+        if (Array.isArray(session.sessionLog) && session.sessionLog.length > 0) {
+          for (const entry of session.sessionLog) {
+            const div = document.createElement('div');
+            div.style.cssText = 'padding:4px 0;border-bottom:1px solid var(--b1);margin-bottom:4px;';
+            div.textContent = entry;
+            log.appendChild(div);
+          }
+          log.scrollTop = log.scrollHeight;
+        }
+      }
+
+      renderTutorHistory();
+    },
+
+    // Update active session with current state
+    updateActiveSession() {
+      if (!this.activeSessionId) return;
+      const session = this.sessions.find(s => s.id === this.activeSessionId);
+      if (session) {
+        session.updatedAt = Date.now();
+        session.topic = document.getElementById('tutor-topic')?.value || '';
+        session.selectedMode = this.currentMode;
+        session.selectedLevel = this.currentLevel;
+        session.messages = this.history;
+        // Update session log
+        const logEntries = [];
+        const logDiv = document.getElementById('tutor-log');
+        if (logDiv) {
+          logDiv.querySelectorAll('div').forEach(entry => {
+            const text = entry.textContent || '';
+            if (text) logEntries.push(text);
+          });
+        }
+        session.sessionLog = logEntries;
+        this.save();
+      }
+    },
+
+    // Create new session
+    createNewSession(topic = '') {
+      // Check if current active session is empty
+      if (this.activeSessionId) {
+        const currentSession = this.sessions.find(s => s.id === this.activeSessionId);
+        if (currentSession &&
+            (!Array.isArray(currentSession.messages) || currentSession.messages.length === 0) &&
+            (!Array.isArray(currentSession.sessionLog) || currentSession.sessionLog.length === 0) &&
+            (!currentSession.title || currentSession.title === 'Untitled Tutor Session')) {
+          // Reuse the empty session
+          currentSession.updatedAt = Date.now();
+          currentSession.topic = topic || '';
+          currentSession.title = topic ? topic.substring(0, 40) + (topic.length > 40 ? '...' : '') : 'Untitled Tutor Session';
+          this.save();
+          return currentSession;
+        }
+      }
+
+      const newSession = this.createSessionShape(
+        'session-' + Date.now(),
+        topic ? topic.substring(0, 40) + (topic.length > 40 ? '...' : '') : 'Untitled Tutor Session',
+        topic,
+        'explain',
+        'beginner'
+      );
+      this.currentMode = 'explain';
+      this.currentLevel = 'beginner';
+      this.history = [];
+      this.sessions.unshift(newSession);
+      this.activeSessionId = newSession.id;
+      this.save();
+      return newSession;
+    },
+
+    // Switch to session
+    switchToSession(sessionId) {
+      const session = this.sessions.find(s => s.id === sessionId);
+      if (session) {
+        this.updateActiveSession();
+        this.activeSessionId = sessionId;
+        this.loadSessionData(session);
+        this.save();
+      }
+    },
+
+    // Delete session
+    deleteSession(sessionId) {
+      this.sessions = this.sessions.filter(s => s.id !== sessionId);
+      if (this.activeSessionId === sessionId) {
+        this.activeSessionId = this.sessions.length > 0 ? this.sessions[0].id : null;
+      }
+      if (!this.activeSessionId && this.sessions.length === 0) {
+        const newSession = this.createNewSession('');
+        this.activeSessionId = newSession.id;
+      }
+      this.save();
+      if (this.activeSessionId) {
+        const activeSession = this.sessions.find(s => s.id === this.activeSessionId);
+        if (activeSession) {
+          this.loadSessionData(activeSession);
+        }
+      }
+    },
+
+    // Dedup sessions
+    dedupSessions() {
+      if (!Array.isArray(this.sessions)) return;
+
+      const groups = {};
+      this.sessions.forEach(session => {
+        const title = (session.title || session.topic || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+        const key = title || 'untitled';
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(session);
+      });
+
+      const deduped = [];
+      Object.values(groups).forEach(group => {
+        if (group.length === 1) {
+          deduped.push(group[0]);
+        } else {
+          group.sort((a, b) => {
+            const aHasMessages = (Array.isArray(a.messages) && a.messages.length > 0) ? 1 : 0;
+            const bHasMessages = (Array.isArray(b.messages) && b.messages.length > 0) ? 1 : 0;
+            if (aHasMessages !== bHasMessages) return bHasMessages - aHasMessages;
+
+            const aMsgCount = Array.isArray(a.messages) ? a.messages.length : 0;
+            const bMsgCount = Array.isArray(b.messages) ? b.messages.length : 0;
+            if (aMsgCount !== bMsgCount) return bMsgCount - aMsgCount;
+
+            const aLogCount = Array.isArray(a.sessionLog) ? a.sessionLog.length : 0;
+            const bLogCount = Array.isArray(b.sessionLog) ? b.sessionLog.length : 0;
+            if (aLogCount !== bLogCount) return bLogCount - aLogCount;
+
+            return (b.updatedAt || 0) - (a.updatedAt || 0);
+          });
+
+          const best = group[0];
+          deduped.push(best);
+
+          if (this.activeSessionId && this.activeSessionId !== best.id) {
+            const wasActive = group.find(s => s.id === this.activeSessionId);
+            if (wasActive) {
+              this.activeSessionId = best.id;
+            }
+          }
+        }
+      });
+
+      deduped.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+      this.sessions = deduped;
+    },
+
+    // Migrate from old sessionStorage
+    migrateFromSessionStorage() {
+      const oldData = sessionStorage.getItem('tutor-session');
+      if (oldData) {
+        try {
+          const parsed = JSON.parse(oldData);
+          const migratedSession = this.createSessionShape(
+            'session-' + Date.now(),
+            parsed.topic || 'Migrated Session',
+            parsed.topic || '',
+            parsed.mode || 'explain',
+            parsed.level || 'beginner'
+          );
+          migratedSession.messages = Array.isArray(parsed.history) ? parsed.history : [];
+          migratedSession.sessionLog = Array.isArray(parsed.log) ? parsed.log : [];
+          this.sessions = [migratedSession];
+          this.activeSessionId = migratedSession.id;
+          this.loadSessionData(migratedSession);
+          this.sessionRestored = true;
+          this.save();
+          sessionStorage.removeItem('tutor-session');
+          console.log('Migrated old tutor session to new format');
+        } catch (e) {
+          console.error('Error migrating tutor session:', e);
+        }
+      }
+    }
+  }
+};
+
+// =====================================================================
 // SEED DATA — Only written if localStorage is empty
 // =====================================================================
 const SEED = {
@@ -920,10 +1237,7 @@ const SEED = {
 };
 
 function initData(){
-  const keys=['learning','certs','projects','skills','prompts','money','roadmap','queue','progress','offers','notes','reviews'];
-  keys.forEach(k=>{
-    if(!localStorage.getItem(k)) LS.set(k, SEED[k]);
-  });
+  AppState.init();
 }
 
 // =====================================================================
@@ -970,11 +1284,11 @@ function setFocus(val){
 // HOME DASHBOARD
 // =====================================================================
 function renderHome(){
-  const prog=LS.get('progress',SEED.progress);
-  const projects=LS.get('projects',SEED.projects);
-  const money=LS.get('money',SEED.money);
-  const skills=LS.get('skills',SEED.skills);
-  const queue=LS.get('queue',SEED.queue);
+  const prog=AppState.get('progress',SEED.progress);
+  const projects=AppState.get('projects',SEED.projects);
+  const money=AppState.get('money',SEED.money);
+  const skills=AppState.get('skills',SEED.skills);
+  const queue=AppState.get('queue',SEED.queue);
 
   // Stats
   document.getElementById('stat-streak').textContent=prog.streak||0;
@@ -1002,7 +1316,7 @@ function renderHome(){
   // Active section
   const ha=document.getElementById('home-active');
   const inProg=projects.filter(p=>p.status==='in-progress');
-  const learning=LS.get('learning',SEED.learning).filter(l=>l.status==='in-progress');
+  const learning=AppState.get('learning',SEED.learning).filter(l=>l.status==='in-progress');
   ha.innerHTML=(learning[0]?`<div style="margin-bottom:10px;"><div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--t3);margin-bottom:3px;">LEARNING</div><div style="font-size:12px;font-weight:500;color:var(--text);">${learning[0].title}</div><div style="font-size:11px;color:var(--t2);margin-top:2px;">Next: ${learning[0].nextLesson}</div><div class="prog-bar"><div class="prog-fill" style="width:${learning[0].progress}%"></div></div></div>`:'')
     +(inProg[0]?`<div><div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--t3);margin-bottom:3px;">PROJECT</div><div style="font-size:12px;font-weight:500;color:var(--text);">${inProg[0].name}</div><div style="font-size:11px;color:var(--t2);margin-top:2px;">${inProg[0].stack.split(',')[0].trim()}...</div></div>`:'');
 
@@ -1018,7 +1332,7 @@ function renderHome(){
 }
 
 function markStudyDay(){
-  const prog=LS.get('progress',SEED.progress);
+  const prog=AppState.get('progress',SEED.progress);
   const today=new Date().getDay();
   const dayIdx=today===0?6:today-1;
   if(!prog.studyDays) prog.studyDays=[];
@@ -1035,7 +1349,7 @@ function markStudyDay(){
       else prog.streak=1;
     } else prog.streak=1;
     prog.lastStudy=today_str;
-    LS.set('progress',prog);
+    AppState.set('progress',prog);
     renderHome();
     updateStreakDisplay();
   }
@@ -1045,13 +1359,13 @@ function markStudyDay(){
 // DAILY QUEUE
 // =====================================================================
 function renderQueue(){
-  const queue=LS.get('queue',SEED.queue);
+  const queue=AppState.get('queue',SEED.queue);
   const today=new Date().toDateString();
   // Reset if new day
   if(queue.date!==today){
     queue.date=today;
     queue.items.forEach(i=>i.done=false);
-    LS.set('queue',queue);
+    AppState.set('queue',queue);
   }
   const done=queue.items.filter(i=>i.done).length;
   document.getElementById('queue-progress-text').textContent=`${done} of ${queue.items.length} done · ${queue.items.length-done} remaining`;
@@ -1086,29 +1400,29 @@ function renderQueue(){
 }
 
 function toggleQueue(idx){
-  const queue=LS.get('queue',SEED.queue);
+  const queue=AppState.get('queue',SEED.queue);
   queue.items[idx].done=!queue.items[idx].done;
-  LS.set('queue',queue);
+  AppState.set('queue',queue);
   renderQueue();
   showAutosaveMsg(queue.items[idx].done?'Task marked done ✓':'Task marked pending ✓',1200);
 }
 
 function saveQueueEdits(){
-  const queue=LS.get('queue',SEED.queue);
+  const queue=AppState.get('queue',SEED.queue);
   queue.items.forEach((item,idx)=>{
     item.task=document.getElementById('qe-task-'+idx)?.value||item.task;
     item.detail=document.getElementById('qe-detail-'+idx)?.value||item.detail;
   });
-  LS.set('queue',queue);
+  AppState.set('queue',queue);
   renderQueue();
   showAutosaveMsg('Queue saved ✓',2000);
 }
 
 function resetQueue(){
-  const queue=LS.get('queue',SEED.queue);
+  const queue=AppState.get('queue',SEED.queue);
   queue.items.forEach(i=>i.done=false);
   queue.date='';
-  LS.set('queue',queue);
+  AppState.set('queue',queue);
   renderQueue();
 }
 
@@ -1211,7 +1525,7 @@ function renderNews(){
 // LEARNING
 // =====================================================================
 function renderLearning(){
-  const learning=LS.get('learning',SEED.learning);
+  const learning=AppState.get('learning',SEED.learning);
   const filter=document.getElementById('learn-filter')?.value||'';
   const cost=document.getElementById('learn-cost')?.value||'';
   const list=document.getElementById('learn-list');
@@ -1278,21 +1592,21 @@ function toggleExpand(id){
 }
 
 function markLessonDone(id){
-  const learning=LS.get('learning',SEED.learning);
+  const learning=AppState.get('learning',SEED.learning);
   const item=learning.find(l=>l.id===id);
   if(item){
     item.progress=Math.min(100,item.progress+20);
     if(item.progress>=100) item.status='completed';
-    LS.set('learning',learning);
-    const prog=LS.get('progress',SEED.progress);
+    AppState.set('learning',learning);
+    const prog=AppState.get('progress',SEED.progress);
     prog.lessonsWeek=(prog.lessonsWeek||0)+1;
-    LS.set('progress',prog);
+    AppState.set('progress',prog);
     renderLearning();
   }
 }
 
 function buildFromLearning(id){
-  const learning=LS.get('learning',SEED.learning);
+  const learning=AppState.get('learning',SEED.learning);
   const item=learning.find(l=>l.id===id);
   if(item){
     nav('tutor');
@@ -1310,7 +1624,7 @@ function openTutorWithTopic(title){
 // CERTIFICATES
 // =====================================================================
 function renderCerts(){
-  const certs=LS.get('certs',SEED.certs);
+  const certs=AppState.get('certs',SEED.certs);
   const sc=(n)=>n>=8?'badge-green':n>=6?'badge-amber':'badge-red';
   const sl=(n)=>n>=8?'🟢':n>=6?'🟡':'🔴';
   const list=document.getElementById('certs-list');
@@ -1333,7 +1647,7 @@ function renderCerts(){
 // PROJECTS
 // =====================================================================
 function renderProjects(){
-  const projects=LS.get('projects',SEED.projects);
+  const projects=AppState.get('projects',SEED.projects);
   const filter=document.getElementById('proj-filter')?.value||'';
   const items=projects.filter(p=>!filter||p.status===filter);
   const sc={'in-progress':'badge-amber','planning':'badge-purple','done':'badge-green'};
@@ -1391,9 +1705,9 @@ function renderProjects(){
 }
 
 function togglePortfolio(id){
-  const projects=LS.get('projects',SEED.projects);
+  const projects=AppState.get('projects',SEED.projects);
   const p=projects.find(pr=>pr.id===id);
-  if(p){p.portfolioReady=!p.portfolioReady;LS.set('projects',projects);renderProjects();}
+  if(p){p.portfolioReady=!p.portfolioReady;AppState.set('projects',projects);renderProjects();}
 }
 
 function openNewProject(){
@@ -1403,7 +1717,7 @@ function openNewProject(){
 function closeNewProject(){document.getElementById('new-proj-form').style.display='none';}
 
 function saveNewProject(){
-  const projects=LS.get('projects',SEED.projects);
+  const projects=AppState.get('projects',SEED.projects);
   const name=document.getElementById('np-name').value.trim();
   if(!name) return;
   projects.push({
@@ -1417,7 +1731,7 @@ function saveNewProject(){
     liveLink:'',repoLink:'',portfolioReady:false,
     breakdown:{why:'',step1:'',step2:'',step3:'',blocker:'',mvp:''}
   });
-  LS.set('projects',projects);
+  AppState.set('projects',projects);
   closeNewProject();
   renderProjects();
 }
@@ -1426,7 +1740,7 @@ function saveNewProject(){
 // PORTFOLIO
 // =====================================================================
 function renderPortfolio(){
-  const projects=LS.get('projects',SEED.projects);
+  const projects=AppState.get('projects',SEED.projects);
   const ready=projects.filter(p=>p.portfolioReady);
   const list=document.getElementById('portfolio-list');
   if(!ready.length){
@@ -1456,7 +1770,7 @@ function renderPortfolio(){
 // SKILLS
 // =====================================================================
 function renderSkills(){
-  const skills=LS.get('skills',SEED.skills);
+  const skills=AppState.get('skills',SEED.skills);
   const col=document.getElementById('skills-list-col');
   const catColors={automation:'badge-cyan',ai:'badge-purple',dev:'badge-amber',data:'badge-green',infra:'badge-gray'};
   col.innerHTML=`<div class="card">`+
@@ -1490,15 +1804,15 @@ function renderSkills(){
 
 function markSkillPracticed(){
   const id=document.getElementById('practice-skill-select').value;
-  const skills=LS.get('skills',SEED.skills);
+  const skills=AppState.get('skills',SEED.skills);
   const s=skills.find(sk=>sk.id===id);
   if(s){
     s.lastPracticed=new Date().toLocaleDateString();
     s.current=Math.min(s.target,s.current+0.5);
-    LS.set('skills',skills);
-    const prog=LS.get('progress',SEED.progress);
+    AppState.set('skills',skills);
+    const prog=AppState.get('progress',SEED.progress);
     prog.skillsPracticed=(prog.skillsPracticed||0)+1;
-    LS.set('progress',prog);
+    AppState.set('progress',prog);
     renderSkills();
   }
 }
@@ -1507,7 +1821,7 @@ function markSkillPracticed(){
 // PROMPTS
 // =====================================================================
 function renderPrompts(){
-  const prompts=LS.get('prompts',SEED.prompts);
+  const prompts=AppState.get('prompts',SEED.prompts);
   const filter=document.getElementById('prompt-filter')?.value||'';
   const items=prompts.filter(p=>!filter||p.tool===filter);
   const list=document.getElementById('prompts-list');
@@ -1525,7 +1839,7 @@ function renderPrompts(){
 }
 
 function copyPrompt(id){
-  const prompts=LS.get('prompts',SEED.prompts);
+  const prompts=AppState.get('prompts',SEED.prompts);
   const p=prompts.find(pr=>pr.id===id);
   if(p) navigator.clipboard?.writeText(p.text).catch(()=>{});
 }
@@ -1534,7 +1848,7 @@ function addPrompt(){
   const title=document.getElementById('new-prompt-title').value.trim();
   const text=document.getElementById('new-prompt-text').value.trim();
   if(!title||!text) return;
-  const prompts=LS.get('prompts',SEED.prompts);
+  const prompts=AppState.get('prompts',SEED.prompts);
   prompts.push({
     id:'pr'+Date.now(),
     title,
@@ -1543,7 +1857,7 @@ function addPrompt(){
     useCase:document.getElementById('new-prompt-use').value,
     reusable:true
   });
-  LS.set('prompts',prompts);
+  AppState.set('prompts',prompts);
   document.getElementById('new-prompt-title').value='';
   document.getElementById('new-prompt-text').value='';
   document.getElementById('new-prompt-use').value='';
@@ -1554,7 +1868,7 @@ function addPrompt(){
 // MONEY
 // =====================================================================
 function renderMoney(){
-  const money=LS.get('money',SEED.money);
+  const money=AppState.get('money',SEED.money);
   const list=document.getElementById('money-list');
   const readyColor=(r)=>r>=8?'badge-green':r>=6?'badge-amber':'badge-red';
   list.innerHTML=money.map(m=>`
@@ -1577,7 +1891,7 @@ function renderMoney(){
 // OFFER BUILDER
 // =====================================================================
 function renderOffers(){
-  const offers=LS.get('offers',SEED.offers);
+  const offers=AppState.get('offers',SEED.offers);
   const list=document.getElementById('offers-list');
   if(!offers.length){
     list.innerHTML='<div style="color:var(--t2);font-size:12px;padding:16px 0;">No offers yet. Build your first one below.</div>';
@@ -1609,14 +1923,14 @@ function renderOffers(){
 function addOffer(){
   const name=document.getElementById('o-name').value.trim();
   if(!name) return;
-  const offers=LS.get('offers',SEED.offers);
+  const offers=AppState.get('offers',SEED.offers);
   offers.push({
     name,skill:document.getElementById('o-skill').value,client:document.getElementById('o-client').value,
     problem:document.getElementById('o-problem').value,priceLo:document.getElementById('o-price-lo').value,
     priceHi:document.getElementById('o-price-hi').value,proof:document.getElementById('o-proof').value,
     readiness:document.getElementById('o-ready').value,next:document.getElementById('o-next').value
   });
-  LS.set('offers',offers);
+  AppState.set('offers',offers);
   ['o-name','o-skill','o-client','o-problem','o-price-lo','o-price-hi','o-proof','o-next'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.value='';
   });
@@ -1624,9 +1938,9 @@ function addOffer(){
 }
 
 function deleteOffer(idx){
-  const offers=LS.get('offers',SEED.offers);
+  const offers=AppState.get('offers',SEED.offers);
   offers.splice(idx,1);
-  LS.set('offers',offers);
+  AppState.set('offers',offers);
   renderOffers();
 }
 
@@ -2315,7 +2629,7 @@ function renderTutor(){
 function saveBFL(){
   const learned=document.getElementById('bfl-learned').value.trim();
   if(!learned) return;
-  const notes=LS.get('notes',[]);
+  const notes=AppState.get('notes',[]);
   notes.unshift({
     id:'n'+Date.now(),
     what:learned,
@@ -2325,7 +2639,7 @@ function saveBFL(){
     use:document.getElementById('bfl-service').value,
     date:new Date().toLocaleDateString()
   });
-  LS.set('notes',notes);
+  AppState.set('notes',notes);
   ['bfl-learned','bfl-skill','bfl-project','bfl-service','bfl-next'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.value='';
   });
@@ -2337,7 +2651,7 @@ function saveBFL(){
 // ROADMAP
 // =====================================================================
 function renderRoadmap(){
-  const roadmap=LS.get('roadmap',SEED.roadmap);
+  const roadmap=AppState.get('roadmap',SEED.roadmap);
   document.getElementById('road-level').value=roadmap.level||1;
   const stage=roadmap.stages[roadmap.level]||roadmap.stages[1];
   document.getElementById('roadmap-current').innerHTML=`
@@ -2373,9 +2687,9 @@ function renderRoadmap(){
 }
 
 function saveRoadmapLevel(){
-  const roadmap=LS.get('roadmap',SEED.roadmap);
+  const roadmap=AppState.get('roadmap',SEED.roadmap);
   roadmap.level=parseInt(document.getElementById('road-level').value);
-  LS.set('roadmap',roadmap);
+  AppState.set('roadmap',roadmap);
   renderRoadmap();
 }
 
@@ -2383,7 +2697,7 @@ function saveRoadmapLevel(){
 // NOTES
 // =====================================================================
 function renderNotes(){
-  const notes=LS.get('notes',[]);
+  const notes=AppState.get('notes',[]);
   const search=(document.getElementById('notes-search')?.value||'').toLowerCase();
   const items=notes.filter(n=>!search||(n.what+n.why+n.example).toLowerCase().includes(search));
   const list=document.getElementById('notes-list');
@@ -2415,7 +2729,7 @@ function toggleNoteForm(){
 function saveNote(){
   const what=document.getElementById('n-what').value.trim();
   if(!what) return;
-  const notes=LS.get('notes',[]);
+  const notes=AppState.get('notes',[]);
   notes.unshift({
     id:'n'+Date.now(),
     what,
@@ -2425,7 +2739,7 @@ function saveNote(){
     use:document.getElementById('n-use').value,
     date:new Date().toLocaleDateString()
   });
-  LS.set('notes',notes);
+  AppState.set('notes',notes);
   ['n-what','n-why','n-example','n-action','n-use'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.value='';
   });
@@ -2436,15 +2750,15 @@ function saveNote(){
 }
 
 function deleteNote(idx){
-  const notes=LS.get('notes',[]);
+  const notes=AppState.get('notes',[]);
   notes.splice(idx,1);
-  LS.set('notes',notes);
+  AppState.set('notes',notes);
   updateNotesBadge();
   renderNotes();
 }
 
 function updateNotesBadge(){
-  const notes=LS.get('notes',[]);
+  const notes=AppState.get('notes',[]);
   const el=document.getElementById('notes-badge');
   if(el) el.textContent=notes.length;
 }
@@ -2460,7 +2774,7 @@ function renderReview(){
   document.getElementById('review-week-label').textContent=
     `Week of ${weekStart.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}`;
 
-  const reviews=LS.get('reviews',{});
+  const reviews=AppState.get('reviews',{});
   const saved=reviews[weekKey]||{};
   ['learned','built','practiced','confused','next'].forEach(k=>{
     const el=document.getElementById('rev-'+k);
@@ -2488,7 +2802,7 @@ function saveReview(){
   const weekStart=new Date(now);
   weekStart.setDate(now.getDate()-now.getDay()+1);
   const weekKey=weekStart.toISOString().split('T')[0];
-  const reviews=LS.get('reviews',{});
+  const reviews=AppState.get('reviews',{});
   reviews[weekKey]={
     learned:document.getElementById('rev-learned')?.value||'',
     built:document.getElementById('rev-built')?.value||'',
@@ -2496,7 +2810,7 @@ function saveReview(){
     confused:document.getElementById('rev-confused')?.value||'',
     next:document.getElementById('rev-next')?.value||''
   };
-  LS.set('reviews',reviews);
+  AppState.set('reviews',reviews);
   showAutosaveMsg('Review saved ✓',2000);
 }
 
@@ -2528,10 +2842,10 @@ function exportAppData(){
     
     // Add stats
     backup.stats={
-      notesCount:LS.get('notes',[]).length,
-      projectsCount:LS.get('projects',[]).length,
+      notesCount:AppState.get('notes',[]).length,
+      projectsCount:AppState.get('projects',[]).length,
       tutorSessionsCount:tutorSessions.length,
-      skillsCount:LS.get('skills',[]).length
+      skillsCount:AppState.get('skills',[]).length
     };
     
     // Create JSON file and download
@@ -2677,7 +2991,7 @@ document.head.appendChild(style);
 // UTILITIES
 // =====================================================================
 function updateStreakDisplay(){
-  const prog=LS.get('progress',SEED.progress);
+  const prog=AppState.get('progress',SEED.progress);
   const s=prog.streak||0;
   document.getElementById('streak-display').textContent=`🔥 ${s} day${s!==1?'s':''} streak`;
 }
@@ -2707,11 +3021,11 @@ function init(){
   fetchNews();
   // Reset week progress on Monday
   const now=new Date();
-  const prog=LS.get('progress',SEED.progress);
+  const prog=AppState.get('progress',SEED.progress);
   const weekKey='week-'+now.getFullYear()+'-'+now.getDay();
   if(localStorage.getItem('last-week-key')!==weekKey&&now.getDay()===1){
     prog.studyDays=[];prog.lessonsWeek=0;prog.skillsPracticed=0;
-    LS.set('progress',prog);
+    AppState.set('progress',prog);
     localStorage.setItem('last-week-key',weekKey);
   }
 }
